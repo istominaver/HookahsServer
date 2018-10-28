@@ -56,7 +56,7 @@ app.get('/restaurantsList', function(req, res) {
 
           const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
 
-          makeResponse("restaurantsList", {"restaurantsList":tempArray}, res)
+          makeResponse("restaurantsList", {"restaurants":tempArray}, res)
 
           //res.status(200).json({"action":"restaurantsList","result":"ok","reqestId":new Date().getTime().toString(), "data": {"restaurantsList":tempArray}});//add result ok/err + errCode + errDescr
       }
