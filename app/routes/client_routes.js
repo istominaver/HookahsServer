@@ -32,6 +32,10 @@ function objectUnpack(item) {
             return tempObj;
           }
 
+function makeResponse(action, data, res) {
+    res.status(200).json({"action":action,"result":"ok","reqestId":new Date().getTime().toString(), "data": data});//add result ok/err + errCode + errDescr
+}
+
 app.use(bodyParser.json());
 
 app.get('/restaurantsList', function(req, res) {
@@ -43,14 +47,24 @@ app.get('/restaurantsList', function(req, res) {
   ddb.scan(params, function(err, data) {
       if (err) res.status(500).json({"err":err});
       else {
-          var tempArray = [];
-          for(var i = 0; i < data.Items.length; i++) {
-            tempArray.push(objectUnpack(data.Items[i]));
-          }
-          res.status(200).json({"action":"restaurantsList","result":"ok","reqestId":new Date().getTime(),"requestData":req.body,"data": {"restaurantsList":tempArray}});//add result ok/err + errCode + errDescr
+          // var tempArray = [];
+          // for(var i = 0; i < data.Items.length; i++) {
+          //   tempArray.push(objectUnpack(data.Items[i]));
+          // }
+
+          // const tempArray = data.Items.map{item => objectUnpack(item)}
+
+          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
+
+          makeResponse("restaurantsList", {"restaurantsList":tempArray}, res)
+
+          //res.status(200).json({"action":"restaurantsList","result":"ok","reqestId":new Date().getTime().toString(), "data": {"restaurantsList":tempArray}});//add result ok/err + errCode + errDescr
       }
   });
 });
+
+
+
 
 app.post('/mixesList', function(req, res) {
   var restaurantId = req.body.restaurantId;
