@@ -33,7 +33,7 @@ function objectUnpack(item) {
           }
 
 function makeResponse(action, data, res) {
-    res.status(200).json({"action":action,"result":"ok","reqestId":new Date().getTime().toString(), "data": data});//add result ok/err + errCode + errDescr
+    res.status(200).json({"action":action,"result":"ok","reqId":new Date().getTime().toString(), "data": data});//add result ok/err + errCode + errDescr
 }
 
 app.use(bodyParser.json());
