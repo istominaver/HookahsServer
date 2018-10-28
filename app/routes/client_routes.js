@@ -11,11 +11,7 @@ function objectUnpack(item) {
                 for(var k1 in item[k]) {
                   if (typeof item[k][k1] == "object") {
                     if (item[k][k1].length) {
-                      var tempArray = [];
-                      for(var i = 0; i < item[k][k1].length; i++) {
-                        tempArray.push(objectUnpack(item[k][k1][i]));
-                      }
-                      tempObj[k] = tempArray;
+                      tempObj[k] = item[k][k1].map(function(item) { return objectUnpack(item); });
                     }
                     else {
                       tempObj [k] = objectUnpack(item[k][k1]);
@@ -39,26 +35,16 @@ function makeResponse(action, data, res) {
 app.use(bodyParser.json());
 
 app.get('/restaurantsList', function(req, res) {
-  var params = {
-      //TableName: process.env.TABLE
+
+  const params = {
       TableName: 'Restaurants'
   };
 
   ddb.scan(params, function(err, data) {
       if (err) res.status(500).json({"err":err});
       else {
-          // var tempArray = [];
-          // for(var i = 0; i < data.Items.length; i++) {
-          //   tempArray.push(objectUnpack(data.Items[i]));
-          // }
-
-          // const tempArray = data.Items.map{item => objectUnpack(item)}
-
           const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-
-          makeResponse("restaurantsList", {"restaurants":tempArray}, res)
-
-          //res.status(200).json({"action":"restaurantsList","result":"ok","reqestId":new Date().getTime().toString(), "data": {"restaurantsList":tempArray}});//add result ok/err + errCode + errDescr
+          makeResponse("restaurantsList", {"restaurants":tempArray}, res);
       }
   });
 });
@@ -66,10 +52,11 @@ app.get('/restaurantsList', function(req, res) {
 
 
 
-app.post('/mixesList', function(req, res) {
-  var restaurantId = req.body.restaurantId;
+app.get('/mixesList', function(req, res) {
 
-  var paramsMixes = {
+  const restaurantId = req.query.restaurantId;
+
+  const paramsMixes = {
       ExpressionAttributeValues: {
         ":v1": {
           S: restaurantId
@@ -79,7 +66,7 @@ app.post('/mixesList', function(req, res) {
       TableName: "mixes"
   }; 
 
-  var paramsCategories = {
+  const paramsCategories = {
     Key: {
         "restaurantId": {
           S: restaurantId
@@ -87,28 +74,39 @@ app.post('/mixesList', function(req, res) {
       TableName: 'categories'
   };
 
-ddb.getItem(paramsCategories, function(err, data) { //использовать мапы при редактировании
-    if (err) res.status(500).json({"err":err,"restaurantId":restaurantId});
+ddb.getItem(paramsCategories, function(err, data) { 
+    if (err) res.status(500).json({"err":err + ", restaurantId : " + restaurantId});
     else  {
-      var categoriesList = objectUnpack(data.Item);
+      let tempObj = objectUnpack(data.Item);
       ddb.scan(paramsMixes, function(err, data) {
-        if (err) res.status(500).json({"err":err,"restaurantId":restaurantId}); // an error occurred
-        else  {
-          var tempArray = [];
-            for(var i = 0; i < data.Items.length; i++) {
-              tempArray.push(objectUnpack(data.Items[i]));
+        if (err) res.status(500).json({"err":err+ ", restaurantId : " + restaurantId}); 
+        else  {          
+          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
+
+          tempObj.categories = tempObj.categories.map(function(itemCategory) { 
+            itemCategory.mixes = [];
+            for(let i = 0; i < tempArray.length; i++)
+            {
+              if(tempArray[i].categoryId == itemCategory.id)
+              itemCategory.mixes.push(tempArray[i]);
             }
-          res.status(200).json({"action":"mixesList","result":"ok","reqestId":new Date().getTime(),"requestData":req.body,"data":{"categoriesList":categoriesList}, "mixesList": tempArray});
+
+            return itemCategory; 
+          });
+          makeResponse("mixesList", {"categories": tempObj}, res)
+          //res.status(200).json({"action":"mixesList","result":"ok","reqestId":new Date().getTime(),"requestData":req.body,"data":{"categories":categoriesList, "mixes": tempArray}});
         }
       });
     }
  });
 });
 
-app.put('/makeOrder', function(req, res) {
+app.post('/makeOrder', function(req, res) {
+//if !req.body.phone shouldAuthorised
+//else order is got to handling
 
   var hookahs = req.body.hookahs;
-  //hookahs = [{"mixId": "2", "number":2},{"mixId": "23", "number":2}]
+  //mixes = ["2", "23"]
   var orderId = (new Date().getTime()).toString();
   var hookahsDDBItem = [];
   var tempObj;
