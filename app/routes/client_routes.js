@@ -49,12 +49,32 @@ app.get('/restaurantsList', function(req, res) {
   });
 });
 
+app.get('/hookahMakersList', function(req, res) {
+
+  const params = {
+      ExpressionAttributeValues: {
+        ":v1": {
+          S: "true"
+        }
+      }, 
+      FilterExpression: "atWork = :v1", 
+      TableName: "HookahMakers"
+  }; 
+
+  ddb.scan(params, function(err, data) {
+      if (err) res.status(500).json({"err":err});
+      else {
+          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
+          makeResponse("hookahMakersList", {"hookahMakers":tempArray}, res);
+      }
+  });
+});
 
 
+app.get('/hookahMenu', function(req, res) {
 
-app.get('/mixesList', function(req, res) {
-
-  const restaurantId = req.query.restaurantId;
+  const restaurantId = "0";
+  //req.query.restaurantId;
 
   const paramsMixes = {
       ExpressionAttributeValues: {
@@ -77,7 +97,7 @@ app.get('/mixesList', function(req, res) {
 ddb.getItem(paramsCategories, function(err, data) { 
     if (err) res.status(500).json({"err":err + ", restaurantId : " + restaurantId});
     else  {
-      let tempObj = objectUnpack(data.Item);
+      let tempObj = objectUnpack(data.Item); //  проверка на пустоту
       ddb.scan(paramsMixes, function(err, data) {
         if (err) res.status(500).json({"err":err+ ", restaurantId : " + restaurantId}); 
         else  {          
@@ -93,8 +113,7 @@ ddb.getItem(paramsCategories, function(err, data) {
 
             return itemCategory; 
           });
-          makeResponse("mixesList", {"categories": tempObj}, res)
-          //res.status(200).json({"action":"mixesList","result":"ok","reqestId":new Date().getTime(),"requestData":req.body,"data":{"categories":categoriesList, "mixes": tempArray}});
+          makeResponse("mixesList", tempObj, res)
         }
       });
     }
