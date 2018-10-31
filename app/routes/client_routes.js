@@ -2,7 +2,7 @@ module.exports = function(app, ddb) {
 
 const bodyParser = require('body-parser');
 
-function objectUnpack(item) {
+function objectUnpack(item) { //make like library or module
             var tempObj = {};
             for(var k in item) {
               if(typeof item[k] == "object"){
@@ -17,7 +17,9 @@ function objectUnpack(item) {
                       tempObj [k] = objectUnpack(item[k][k1]);
                     }
                   }
-                  else tempObj[k] = item[k][k1];
+                  else if (k1 == "N" && k == "price") {tempObj[k] = parseFloat(parseFloat(item[k][k1]).toFixed(2))}
+                  else if (k1 == "N" && k == "likes") {tempObj[k] = parseInt(item[k][k1]);}
+                  else {tempObj[k] = item[k][k1];}
                 }
                 }
               }
@@ -35,7 +37,7 @@ function makeResponse(action, data, res) {
 app.use(bodyParser.json());
 
 app.get('/restaurantsList', function(req, res) {
-
+//sort by likes
   const params = {
       TableName: 'Restaurants'
   };
@@ -50,7 +52,8 @@ app.get('/restaurantsList', function(req, res) {
 });
 
 app.get('/hookahMakersList', function(req, res) {
-
+//add filter by city by restId
+//sort by likes
   const params = {
       ExpressionAttributeValues: {
         ":v1": {
@@ -107,7 +110,7 @@ ddb.getItem(paramsCategories, function(err, data) {
             itemCategory.mixes = [];
             for(let i = 0; i < tempArray.length; i++)
             {
-              if(tempArray[i].categoryId == itemCategory.id)
+              if(tempArray[i].categoryId == itemCategory.categoryId)
               itemCategory.mixes.push(tempArray[i]);
             }
 
