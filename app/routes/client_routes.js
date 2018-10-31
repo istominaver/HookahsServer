@@ -61,7 +61,7 @@ app.get('/hookahMastersList', function(req, res) {
         }
       }, 
       FilterExpression: "atWork = :v1", 
-      TableName: "HookahMakers"
+      TableName: "HookahMasters"
   }; 
 
   ddb.scan(params, function(err, data) {
