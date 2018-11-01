@@ -54,6 +54,12 @@ app.get('/restaurantsList', function(req, res) {
 app.get('/hookahMastersList', function(req, res) {
 //add filter by city by restId
 //sort by likes
+let restaurantId; 
+
+if(req.query.restaurantId) {
+  restaurantId = req.query.restaurantId;
+}
+
   const params = {
       ExpressionAttributeValues: {
         ":v1": {
@@ -68,7 +74,7 @@ app.get('/hookahMastersList', function(req, res) {
       if (err) res.status(500).json({"err":err});
       else {
           const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-          makeResponse("hookahMastersList", {"hookahMakers":tempArray}, res);
+          makeResponse("hookahMastersList", {"hookahMasters":tempArray,"restaurantId":restaurantId}, res);
       }
   });
 });
