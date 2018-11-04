@@ -3,26 +3,32 @@ module.exports = function(app, ddb) {
 function objectUnpack(item) { //make like library or module
             var tempObj = {};
             for(var k in item) {
-              if(typeof item[k] == "object"){
-                if(k.length == 1) {tempObj = objectUnpack(item[k])}
-                else {
-                for(var k1 in item[k]) {
-                  if (typeof item[k][k1] == "object") {
-                    if (item[k][k1].length) {
-                      tempObj[k] = item[k][k1].map(function(item) { return objectUnpack(item); });
-                    }
-                    else {
-                      tempObj [k] = objectUnpack(item[k][k1]);
+              if(!k) { tempObj = item } //?
+              else {
+                if(typeof item[k] == "object"){
+                  if(k.length == 1) {tempObj = objectUnpack(item[k])}
+                  else {
+                    for(var k1 in item[k]) {
+                      if(!k1) { tempObj =  item[k] } //?
+                      else {
+                        if (typeof item[k][k1] == "object") {
+                          if (item[k][k1].length) {
+                            tempObj[k] = item[k][k1].map(function(item) { return objectUnpack(item); });
+                          }
+                          else {
+                            tempObj [k] = objectUnpack(item[k][k1]);
+                          }
+                        } 
+                        else if (k1 == "N" && k == "price") {tempObj[k] = parseFloat(parseFloat(item[k][k1]).toFixed(2))}
+                        else if (k1 == "N" && k == "likes") {tempObj[k] = parseInt(item[k][k1]);}
+                        else {tempObj[k] = item[k][k1];}
+                      }
                     }
                   }
-                  else if (k1 == "N" && k == "price") {tempObj[k] = parseFloat(parseFloat(item[k][k1]).toFixed(2))}
-                  else if (k1 == "N" && k == "likes") {tempObj[k] = parseInt(item[k][k1]);}
-                  else {tempObj[k] = item[k][k1];}
                 }
+                else {
+                  return item[k];
                 }
-              }
-              else {
-                return item[k];
               }
             }
             return tempObj;
@@ -39,7 +45,7 @@ app.get('/restaurantsList', function(req, res) {
   };
 
   ddb.scan(params, function(err, data) {
-      if (err) res.status(500).json({"err":err});
+      if (err) res.status(200).json({"err":err});
       else {
           const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
           makeResponse("restaurantsList", {"restaurants":tempArray}, res);
@@ -50,7 +56,7 @@ app.get('/restaurantsList', function(req, res) {
 app.get('/hookahMastersList', function(req, res) {
 //sort by likes 
   let restaurantId; 
-  let params = {TableName: "HookahMasters"}
+  let params = { TableName : "HookahMasters" }
 
   if(req.query.restaurantId) {
     restaurantId = req.query.restaurantId;
@@ -86,19 +92,19 @@ app.get('/hookahMastersList', function(req, res) {
 app.get('/ordersList', function(req, res) {
 
 //sort by time 
-  let hookahMastersId, clientId; 
+  let hookahMasterId, clientId; 
   let params = {TableName: "Orders"}
 
-  if(req.query.hookahMastersId) {
-    hookahMastersId = req.query.hookahMastersId;
-    params.FilterExpression = "hookahMastersId = :hookahMastersId and time > :time";
+  if(req.query.hookahMasterId) {
+    hookahMasterId = req.query.hookahMasterId;
+    params.FilterExpression = "hookahMasterId = :hookahMasterId"; //and date > :date
     params.ExpressionAttributeValues = {
-      ":restaurantId": {
-        S: restaurantId
-      },
-      ":time": {
-        N: new Date().getTime() - 4320000
+      ":hookahMasterId": {
+        S: hookahMasterId
       }
+      // ":date": {
+      //   N: new Date().getTime() - 4320000 // last 24 hours
+      // }
       };
   }
   else if(req.query.clientId){
@@ -115,7 +121,7 @@ app.get('/ordersList', function(req, res) {
       if (err) res.status(500).json({"err":err});
       else {
           const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-          makeResponse("hookahMastersList", {"ordersList":tempArray,"clientId":clientId,"hookahMastersId":hookahMastersId}, res);
+          makeResponse("hookahMastersList", {"ordersList":tempArray,"clientId":clientId,"hookahMasterId":hookahMasterId}, res);
       }
   });
 });
@@ -123,8 +129,15 @@ app.get('/ordersList', function(req, res) {
 
 app.get('/hookahMenu', function(req, res) {
 
-  const restaurantId = "0";
-  //req.query.restaurantId;
+  const restaurantId = req.query.restaurantId;
+
+  const paramsCategories = {
+    Key: {
+        "restaurantId": {
+          S: restaurantId
+        }},
+      TableName: 'categories'
+  };
 
   const paramsMixes = {
       ExpressionAttributeValues: {
@@ -136,15 +149,7 @@ app.get('/hookahMenu', function(req, res) {
       TableName: "mixes"
   }; 
 
-  const paramsCategories = {
-    Key: {
-        "restaurantId": {
-          S: restaurantId
-        }},
-      TableName: 'categories'
-  };
-
-ddb.getItem(paramsCategories, function(err, data) { 
+  ddb.getItem(paramsCategories, function(err, data) { 
     if (err) res.status(500).json({"err":err + ", restaurantId : " + restaurantId});
     else  {
       let tempObj = objectUnpack(data.Item); //  проверка на пустоту
@@ -173,22 +178,22 @@ ddb.getItem(paramsCategories, function(err, data) {
 app.post('/makeOrder', function(req, res) {
 
   const orderId = (new Date().getTime()).toString();
-  const hookahsDDBItem = req.body.hookahs.map(function(item) { return {"M":{"mixId": {"S":item.mixId},"number":{"S":item.number}} }});
+  const hookahsDDBItem = req.body.hookahs.map(function(item) { return { "M" : { "mixId" : { "S" : item.mixId } } } } );
 
   const item = {
     "amount":          {'S': req.body.amount},
     "clientId":        {'S': req.body.clientId},
     "clientName":      {'S': req.body.clientName},
     "condition":       {'S': "new"},
-    "guestsNumber":    {'S': req.body.guestsNumber},
-    "hookahMastersId": {'S': req.body.hookahMastersId},
+    "peopleCount":     {'N': req.body.peopleCount},
+    "hookahMasterId":  {'S': req.body.hookahMasterId},
     "hookahs":         {'L': hookahsDDBItem},
     "orderId":         {'S': orderId},
     "payment":         {'S': "false"},
-    "phone":           {'S': req.body.phone},
-    "placeId":         {'S': req.body.placeId},
+    "phoneNumber":     {'S': req.body.phoneNumber},
+    "tableNumber":     {'S': req.body.tableNumber},
     "restaurantId":    {'S': req.body.restaurantId},
-    "time":            {'S': req.body.time}
+    "dueDate":         {'S': req.body.dueDate}
   }
 
   ddb.putItem({
@@ -196,8 +201,8 @@ app.post('/makeOrder', function(req, res) {
     'Item': item
   }, function(err, data) {
     if (err) res.status(500).json({"err":err,"orderId":orderId}); 
-    else makeResponse("makeOrder", {"orderId": orderId, "reqData": req.body}, res)
-      //res.status(200).json({"requestData":req.body,"data": {"orderId": orderId}});                
+    else makeResponse("makeOrder", {"orderId": orderId, "reqData": req.body}, res);
+    //положить данные запроса в дату напрямую + добавить остальные сформированные поля              
   });
  });
 
