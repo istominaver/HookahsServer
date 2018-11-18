@@ -163,20 +163,16 @@ app.post('/makeOrder', function(req, res) {
     "condition":       {'S': "new"},
     "peopleCount":     {'N': req.body.peopleCount},
     "hookahMasterId":  {'S': req.body.hookahMasterId},
-    "hookahMasterInfo" :   {'M': {"hookahMasterName":     {'S': req.body.hookahMasterName},
-                                  "hookahMasterImageUrl": {'S': req.body.hookahMasterImageUrl}
-                            }
-                        },
+    "hookahMasterName":     {'S': req.body.hookahMasterName},
+    "hookahMasterImageUrl": {'S': req.body.hookahMasterImageUrl},
     "hookahs":         {'L': hookahsDDBItem},
     "orderId":         {'S': orderId},
     "payment":         {'S': "false"},
     "phoneNumber":     {'S': req.body.phoneNumber},
     "tableNumber":     {'S': req.body.tableNumber},
     "restaurantId":    {'S': req.body.restaurantId},
-    "restaurantInfo":  {'M': {"restaurantName":     {'S': req.body.restaurantName},
-                              "restaurantImageUrl": {'S': req.body.restaurantImageUrl}
-                             }
-                        },
+    "restaurantName":     {'S': req.body.restaurantName},
+    "restaurantImageUrl": {'S': req.body.restaurantImageUrl},
     "dueDate":         {'S': req.body.dueDate}
   }
 
