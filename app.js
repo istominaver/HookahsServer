@@ -1,18 +1,11 @@
-﻿
-const express = require('express')
-const AWS = require('aws-sdk');
+﻿const express = require('express')
 const app = express();
 const port = process.env.PORT || 8081;
 const bodyParser = require('body-parser');
 
-AWS.config.update({ //make config
-  region: 'us-east-1' 
-});
-const ddb = new AWS.DynamoDB();
+app.use(bodyParser.json());
 
-  app.use(bodyParser.json());
-
-require('./app/routes')(app, ddb);
+require('./app/routes/client_routes')(app);
 
 app.listen(port, () => {
   console.log('We are live on ' + port);

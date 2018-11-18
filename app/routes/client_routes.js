@@ -1,62 +1,46 @@
-module.exports = function(app, ddb) {
+const databaseService = require('./database_service');
 
-function objectUnpack(item) { //make like library or module
-            var tempObj = {};
-            for(var k in item) {
-              if(!k) { tempObj = item } //?
-              else {
-                if(typeof item[k] == "object"){
-                  if(k.length == 1) {tempObj = objectUnpack(item[k])}
-                  else {
-                    for(var k1 in item[k]) {
-                      if(!k1) { tempObj =  item[k] } //?
-                      else {
-                        if (typeof item[k][k1] == "object") {
-                          if (item[k][k1].length) {
-                            tempObj[k] = item[k][k1].map(function(item) { return objectUnpack(item); });
-                          }
-                          else {
-                            tempObj [k] = objectUnpack(item[k][k1]);
-                          }
-                        } 
-                        else if (k1 == "N" && k == "price") {tempObj[k] = parseFloat(parseFloat(item[k][k1]).toFixed(2))}
-                        else if (k1 == "N" && k == "likes") {tempObj[k] = parseInt(item[k][k1]);}
-                        else {tempObj[k] = item[k][k1];}
-                      }
-                    }
-                  }
-                }
-                else {
-                  return item[k];
-                }
-              }
-            }
-            return tempObj;
-          }
-
-function makeResponse(action, data, res) {
-    res.status(200).json({"action":action,"result":"ok","reqId":new Date().getTime().toString(), "data": data});//add result ok/err + errCode + errDescr
+function makeErrorResponse(action, err, res) {
+    res.status(200).json(
+    {
+    "action" : action,
+    "result" : "error",
+    "reqId"  : new Date().getTime().toString(), 
+    "error"    : err
+    });
 }
+
+function makeSuccessfulResponse(action, data, res) {
+    res.status(200).json(
+    {
+    "action" : action,
+    "result" : "ok",
+    "reqId"  : new Date().getTime().toString(), 
+    "data"   : data
+    });
+}
+
+module.exports = function(app) {
 
 app.get('/restaurantsList', function(req, res) {
 //sort by likes
-  const params = {
-      TableName: 'Restaurants'
-  };
-
-  ddb.scan(params, function(err, data) {
-      if (err) res.status(200).json({"err":err});
-      else {
-          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-          makeResponse("restaurantsList", {"restaurants":tempArray}, res);
-      }
+  const action = 'restaurantsList';
+  const params = { TableName: 'Restaurants' };
+  
+  databaseService('scan', params, res, function(resultArray, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else      makeSuccessfulResponse(action, 
+                                     { "restaurants" : databaseService.resultArray }, 
+                                     res
+                                    );
   });
 });
 
 app.get('/hookahMastersList', function(req, res) {
 //sort by likes 
+  const action = 'hookahMastersList';
   let restaurantId; 
-  let params = { TableName : "HookahMasters" }
+  let params = { TableName : "HookahMasters" };
 
   if(req.query.restaurantId) {
     restaurantId = req.query.restaurantId;
@@ -72,28 +56,23 @@ app.get('/hookahMastersList', function(req, res) {
   }
   else {
     params.ExpressionAttributeValues = {
-      ":v1": {
-        S: "true"
-      }
+      ":v1": { S: "true" }
     }; 
     params.FilterExpression = "atWork = :v1"; 
     params.TableName = "HookahMasters";
   }; 
 
-  ddb.scan(params, function(err, data) {
-      if (err) res.status(500).json({"err":err});
-      else {
-          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-          makeResponse("hookahMastersList", {"hookahMasters":tempArray,"restaurantId":restaurantId}, res);
-      }
+  databaseService('scan', params, res, function(resultArray, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else      makeSuccessfulResponse(action, { "hookahMasters" : databaseService.resultArray, "restaurantId" : restaurantId}, res);
   });
 });
 
 app.get('/ordersList', function(req, res) {
-
 //sort by time 
+  const action = 'ordersList';
   let hookahMasterId, clientId; 
-  let params = {TableName: "Orders"}
+  let params = { TableName : "Orders" };
 
   if(req.query.hookahMasterId) {
     hookahMasterId = req.query.hookahMasterId;
@@ -117,18 +96,15 @@ app.get('/ordersList', function(req, res) {
     };
   }; 
 
-  ddb.scan(params, function(err, data) {
-      if (err) res.status(500).json({"err":err});
-      else {
-          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-          makeResponse("hookahMastersList", {"ordersList":tempArray,"clientId":clientId,"hookahMasterId":hookahMasterId}, res);
-      }
+  databaseService('scan', params, res, function(resultArray, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else     makeSuccessfulResponse(action, { "ordersList" : databaseService.resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, res);
   });
 });
 
-
 app.get('/hookahMenu', function(req, res) {
 
+  const action = 'hookahMenu';
   const restaurantId = req.query.restaurantId;
 
   const paramsCategories = {
@@ -149,36 +125,36 @@ app.get('/hookahMenu', function(req, res) {
       TableName: "mixes"
   }; 
 
-  ddb.getItem(paramsCategories, function(err, data) { 
-    if (err) res.status(500).json({"err":err + ", restaurantId : " + restaurantId});
-    else  {
-      let tempObj = objectUnpack(data.Item); //  проверка на пустоту
-      ddb.scan(paramsMixes, function(err, data) {
-        if (err) res.status(500).json({"err":err+ ", restaurantId : " + restaurantId}); 
-        else  {          
-          const tempArray = data.Items.map(function(item) { return objectUnpack(item); });
-
-          tempObj.categories = tempObj.categories.map(function(itemCategory) { 
+  databaseService('getItem', paramsCategories, res, function(resultObject, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else {
+      databaseService('scan', paramsMixes, res, function(resultArray, error) {
+        if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+        else {
+          databaseService.resultObject.categories = 
+          databaseService.resultObject.categories.map(function(itemCategory) { 
             itemCategory.mixes = [];
-            for(let i = 0; i < tempArray.length; i++)
-            {
-              if(tempArray[i].categoryId == itemCategory.categoryId)
-              itemCategory.mixes.push(tempArray[i]);
-            }
-
+            databaseService.resultArray.map(function(item) { 
+              if (item.categoryId == itemCategory.categoryId)
+                itemCategory.mixes.push(item);
+            });
             return itemCategory; 
           });
-          makeResponse("mixesList", tempObj, res)
+          makeSuccessfulResponse(action, databaseService.resultObject, res);
         }
       });
-    }
- });
-});
+    }     
+  });  
+});  
 
 app.post('/makeOrder', function(req, res) {
 
+  const action = 'makeOrder';
   const orderId = (new Date().getTime()).toString();
-  const hookahsDDBItem = req.body.hookahs.map(function(item) { return { "M" : { "mixId" : { "S" : item.mixId } } } } );
+  const hookahsDDBItem = 
+  req.body.hookahs.map(function(item) { 
+    return {"M" : { "mixId": {"S" : item.mixId}, "name": {"S" : item.name}} } 
+  });
 
   const item = {
     "amount":          {'S': req.body.amount},
@@ -187,24 +163,33 @@ app.post('/makeOrder', function(req, res) {
     "condition":       {'S': "new"},
     "peopleCount":     {'N': req.body.peopleCount},
     "hookahMasterId":  {'S': req.body.hookahMasterId},
+    "hookahMasterInfo" :   {'M': {"hookahMasterName":     {'S': req.body.hookahMasterName},
+                                  "hookahMasterImageUrl": {'S': req.body.hookahMasterImageUrl}
+                            }
+                        },
     "hookahs":         {'L': hookahsDDBItem},
     "orderId":         {'S': orderId},
     "payment":         {'S': "false"},
     "phoneNumber":     {'S': req.body.phoneNumber},
     "tableNumber":     {'S': req.body.tableNumber},
     "restaurantId":    {'S': req.body.restaurantId},
+    "restaurantInfo":  {'M': {"restaurantName":     {'S': req.body.restaurantName},
+                              "restaurantImageUrl": {'S': req.body.restaurantImageUrl}
+                             }
+                        },
     "dueDate":         {'S': req.body.dueDate}
   }
 
-  ddb.putItem({
+  const params = {
     'TableName': "Orders",
     'Item': item
-  }, function(err, data) {
-    if (err) res.status(500).json({"err":err,"orderId":orderId}); 
-    else makeResponse("makeOrder", {"orderId": orderId, "reqData": req.body}, res);
-    //положить данные запроса в дату напрямую + добавить остальные сформированные поля              
+  };
+
+  databaseService('putItem', params, res, function(result, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else      makeSuccessfulResponse(action, 
+                                     { "orderId": orderId}, 
+                                     res);
   });
  });
-
-
-};
+}
