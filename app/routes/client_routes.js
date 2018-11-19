@@ -105,7 +105,8 @@ app.get('/ordersList', function(req, res) {
 app.get('/hookahMenu', function(req, res) {
 
   const action = 'hookahMenu';
-  const restaurantId = req.query.restaurantId;
+  const restaurantId = "0";
+  //req.query.restaurantId;
 
   const paramsCategories = {
     Key: {
