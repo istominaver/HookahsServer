@@ -129,9 +129,11 @@ app.get('/hookahMenu', function(req, res) {
   databaseService('getItem', paramsCategories, res, function(resultObject, error) {
     if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
     else {
+      //добавить ошибку нет меню для ресторана
       databaseService('scan', paramsMixes, res, function(resultArray, error) {
         if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
         else {
+          //добавить ошибку нет меню для ресторана
           databaseService.resultObject.categories = 
           databaseService.resultObject.categories.map(function(itemCategory) { 
             itemCategory.mixes = [];
@@ -225,4 +227,20 @@ app.post('/makeOrder', function(req, res) {
 
   
   });
+
+app.get('/restaurantsList', function(req, res) {
+//sort by likes
+  const action = 'restaurantsList';
+  const params = { TableName: 'Restaurants' };
+  
+  databaseService('scan', params, res, function(resultArray, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else      makeSuccessfulResponse(action, 
+                                     { "restaurants" : databaseService.resultArray }, 
+                                     res
+                                    );
+  });
+}); 
+
+
 }
