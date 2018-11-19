@@ -155,25 +155,56 @@ app.post('/makeOrder', function(req, res) {
   req.body.hookahs.map(function(item) { 
     return {"M" : { "mixId": {"S" : item.mixId}, "name": {"S" : item.name}} } 
   });
+  let hookahMasterName = "Incognito";
+  let hookahMasterImageURL = "https://static.vecteezy.com/system/resources/previews/000/014/628/original/hookahman-vector.jpg";
 
-  const item = {
-    "amount":          {'S': req.body.amount},
-    "clientId":        {'S': req.body.clientId},
-    "clientName":      {'S': req.body.clientName},
-    "condition":       {'S': "new"},
-    "peopleCount":     {'N': req.body.peopleCount},
-    "hookahMasterId":  {'S': req.body.hookahMasterId},
-    "hookahMasterName":     {'S': req.body.hookahMasterName},
-    "hookahMasterImageUrl": {'S': req.body.hookahMasterImageUrl},
-    "hookahs":         {'L': hookahsDDBItem},
-    "orderId":         {'S': orderId},
-    "payment":         {'S': "false"},
-    "phoneNumber":     {'S': req.body.phoneNumber},
-    "tableNumber":     {'S': req.body.tableNumber},
-    "restaurantId":    {'S': req.body.restaurantId},
-    "restaurantName":     {'S': req.body.restaurantName},
-    "restaurantImageUrl": {'S': req.body.restaurantImageUrl},
-    "dueDate":         {'S': req.body.dueDate}
+  let restaurantName = "Secret";
+  let restaurantImageURL = "http://png.clipart-library.com/images/1/black-and-white-hookah-clip-art/tobacco-pipe-hookah-lounge-logo-hookah-5ac3a8eecc7100.9629897215227722068374.jpg";
+
+  const paramsHookahMaster = {
+    Key: {
+        "hookahMasterId": {
+          S: req.body.hookahMasterId
+        }},
+      TableName: 'HookahMasters'
+  };
+
+  const paramsRestaurant = {
+    Key: {
+        "restaurantId": {
+          S: req.body.restaurantId
+        }},
+      TableName: 'Restaurants'
+  };
+
+  databaseService('getItem', paramsHookahMaster, res, function(resultObject, error) {
+    if(!databaseService.error) {
+      hookahMasterName = databaseService.resultObject.name;
+      hookahMasterImageURL = databaseService.resultObject.imageURL;
+    }
+    databaseService('getItem', paramsRestaurant, res, function(resultObject, error) {
+    if(!databaseService.error) {
+      restaurantName = databaseService.resultObject.name;
+      restaurantImageURL = databaseService.resultObject.photos[0];
+    }
+    const item = {
+    "amount":               {'S': req.body.amount},
+    "clientId":             {'S': req.body.clientId},
+    "clientName":           {'S': req.body.clientName},
+    "condition":            {'S': "new"},
+    "peopleCount":          {'N': req.body.peopleCount},
+    "hookahMasterId":       {'S': req.body.hookahMasterId},
+    "hookahMasterName":     {'S': hookahMasterName},
+    "hookahMasterImageURL": {'S': hookahMasterImageURL},
+    "hookahs":              {'L': hookahsDDBItem},
+    "orderId":              {'S': orderId},
+    "payment":              {'S': "false"},
+    "phoneNumber":          {'S': req.body.phoneNumber},
+    "tableNumber":          {'S': req.body.tableNumber},
+    "restaurantId":         {'S': req.body.restaurantId},
+    "restaurantName":       {'S': restaurantName},
+    "restaurantImageURL":   {'S': restaurantImageURL},
+    "dueDate":              {'S': req.body.dueDate}
   }
 
   const params = {
@@ -187,5 +218,10 @@ app.post('/makeOrder', function(req, res) {
                                      { "orderId": orderId}, 
                                      res);
   });
- });
+  });
+  });
+
+
+  
+  });
 }
