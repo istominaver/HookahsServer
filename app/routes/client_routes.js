@@ -42,10 +42,9 @@ app.get('/hookahMastersList', function(req, res) {
   let restaurantId; 
   let params = { 
     TableName : "HookahMasters",
-    // ExpressionAttributeNames: {
-    //  "N": "name"
-    // },
-    ProjectionExpression: "atWork, description, hookahMasterId, imageURL, likes, restaurantId"  
+    ExpressionAttributeNames:
+    {"#N":"name"},
+    ProjectionExpression: "#N, atWork, description, hookahMasterId, imageURL, likes, restaurantId"  
   };
 
   if(req.query.restaurantId) {
@@ -67,7 +66,7 @@ app.get('/hookahMastersList', function(req, res) {
     params.FilterExpression = "atWork = :v1"; 
     params.TableName = "HookahMasters";
   }; 
-
+  
   databaseService('scan', params, res, function(resultArray, error) {
     if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
     else      makeSuccessfulResponse(action, { "hookahMasters" : databaseService.resultArray, "restaurantId" : restaurantId}, res);
