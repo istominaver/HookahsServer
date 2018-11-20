@@ -230,8 +230,6 @@ app.post('/makeOrder', function(req, res) {
 app.put('/startWorkingDay', function(req, res) {
 //sort by likes
   const action = 'startWorkingDay';
-  // const hookahMasterId = req.query.hookahMasterId;
-  // const restaurantId = req.query.restaurantId;
 
   const params = {
   ExpressionAttributeNames: {
@@ -265,5 +263,36 @@ app.put('/startWorkingDay', function(req, res) {
   });
 }); 
 
+app.put('/endWorkingDay', function(req, res) {
+//sort by likes
+  const action = 'endWorkingDay';
+
+  const params = {
+  ExpressionAttributeNames: {
+   "#AW": "atWork"
+  }, 
+  ExpressionAttributeValues: {
+   ":aw": {
+     S: "false"
+    }
+  }, 
+  Key: {
+   "hookahMasterId": {
+     S: req.query.hookahMasterId
+    }
+  }, 
+ // ReturnValues: "ALL_NEW", 
+  TableName: "HookahMasters", 
+  UpdateExpression: "SET #AW = :aw"
+ };
+
+  
+  databaseService('updateItem', params, res, function(resultArray, error) {
+    if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
+    else      makeSuccessfulResponse(action, {}, 
+                                     res
+                                    );
+  });
+}); 
 
 }
