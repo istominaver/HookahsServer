@@ -40,7 +40,13 @@ app.get('/hookahMastersList', function(req, res) {
 //sort by likes 
   const action = 'hookahMastersList';
   let restaurantId; 
-  let params = { TableName : "HookahMasters" };
+  let params = { 
+    TableName : "HookahMasters",
+    // ExpressionAttributeNames: {
+    //  "N": "name"
+    // },
+    ProjectionExpression: "atWork, description, hookahMasterId, imageURL, likes, restaurantId"  
+  };
 
   if(req.query.restaurantId) {
     restaurantId = req.query.restaurantId;
@@ -234,13 +240,13 @@ app.put('/startWorkingDay', function(req, res) {
   const params = {
   ExpressionAttributeNames: {
    "#AW": "atWork",
-   "#LR": "lastRestaurantId"
+   "#R": "restaurantId"
   }, 
   ExpressionAttributeValues: {
    ":aw": {
      S: "true"
     },
-    ":lr": {
+    ":r": {
      S: req.query.restaurantId
     }
   }, 
@@ -251,7 +257,7 @@ app.put('/startWorkingDay', function(req, res) {
   }, 
  // ReturnValues: "ALL_NEW", 
   TableName: "HookahMasters", 
-  UpdateExpression: "SET #AW = :aw, #LR = :lr"
+  UpdateExpression: "SET #AW = :aw, #R = :r"
  };
 
   
