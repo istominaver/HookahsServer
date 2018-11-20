@@ -98,15 +98,16 @@ app.get('/ordersList', function(req, res) {
 
   databaseService('scan', params, res, function(resultArray, error) {
     if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
-    else     makeSuccessfulResponse(action, { "ordersList" : databaseService.resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, res);
+    else     
+      //добавить проверку на дефолтные данные
+      makeSuccessfulResponse(action, { "ordersList" : databaseService.resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, res);
   });
 });
 
 app.get('/hookahMenu', function(req, res) {
 
   const action = 'hookahMenu';
-  const restaurantId = "0";
-  //req.query.restaurantId;
+  const restaurantId = req.query.restaurantId;
 
   const paramsCategories = {
     Key: {
@@ -129,11 +130,9 @@ app.get('/hookahMenu', function(req, res) {
   databaseService('getItem', paramsCategories, res, function(resultObject, error) {
     if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
     else {
-      //добавить ошибку нет меню для ресторана
       databaseService('scan', paramsMixes, res, function(resultArray, error) {
         if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
         else {
-          //добавить ошибку нет меню для ресторана
           databaseService.resultObject.categories = 
           databaseService.resultObject.categories.map(function(itemCategory) { 
             itemCategory.mixes = [];
@@ -228,15 +227,39 @@ app.post('/makeOrder', function(req, res) {
   
   });
 
-app.get('/restaurantsList', function(req, res) {
+app.put('/startWorkingDay', function(req, res) {
 //sort by likes
-  const action = 'restaurantsList';
-  const params = { TableName: 'Restaurants' };
+  const action = 'startWorkingDay';
+  // const hookahMasterId = req.query.hookahMasterId;
+  // const restaurantId = req.query.restaurantId;
+
+  const params = {
+  ExpressionAttributeNames: {
+   "#AW": "atWork",
+   "#LR": "lastRestaurantId"
+  }, 
+  ExpressionAttributeValues: {
+   ":aw": {
+     S: "true"
+    },
+    ":lr": {
+     S: req.query.restaurantId
+    }
+  }, 
+  Key: {
+   "hookahMasterId": {
+     S: req.query.hookahMasterId
+    }
+  }, 
+ // ReturnValues: "ALL_NEW", 
+  TableName: "HookahMasters", 
+  UpdateExpression: "SET #AW = :aw, #LR = :lr"
+ };
+
   
-  databaseService('scan', params, res, function(resultArray, error) {
+  databaseService('updateItem', params, res, function(resultArray, error) {
     if(databaseService.error) makeErrorResponse(action, databaseService.error, res);
-    else      makeSuccessfulResponse(action, 
-                                     { "restaurants" : databaseService.resultArray }, 
+    else      makeSuccessfulResponse(action, {}, 
                                      res
                                     );
   });

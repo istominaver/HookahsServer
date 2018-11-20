@@ -44,6 +44,7 @@ module.exports = function(method, params, res, callback) {
     ddb.scan(params, function(err, data) {
       if (err) module.exports.error = err;
       else {
+          module.exports.error = "";
           module.exports.resultArray = 
           data.Items.map(function(item) { return objectUnpack(item); });
       }
@@ -53,7 +54,10 @@ module.exports = function(method, params, res, callback) {
   else if (method == 'getItem') {
     ddb.getItem(params, function(err, data) { 
       if (err) module.exports.error = err;
+      else if (Object.keys(data).length == 0)
+        module.exports.error = "Нет данных по указанному заведению";
       else  {
+        module.exports.error = "";
         module.exports.resultObject = objectUnpack(data.Item); 
       }
       callback();
@@ -62,6 +66,14 @@ module.exports = function(method, params, res, callback) {
   else if (method == 'putItem') {
     ddb.putItem(params, function(err, data) { 
       if (err) module.exports.error = err;
+      else module.exports.error = "";
+      callback();
+    });
+  }
+  else if (method == 'updateItem') {
+    ddb.updateItem(params, function(err, data) { 
+      if (err) module.exports.error = err;
+      else module.exports.error = "";
       callback();
     });
   }
