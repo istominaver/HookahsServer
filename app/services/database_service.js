@@ -42,39 +42,37 @@ function objectUnpack(item) { //make like library or module
 module.exports = function(method, params, res, callback) {
   if(method == 'scan') {
     ddb.scan(params, function(err, data) {
-      if (err) module.exports.error = err;
+      if (err) callback([],err);
       else {
-          module.exports.error = "";
-          module.exports.resultArray = 
-          data.Items.map(function(item) { return objectUnpack(item); });
-      }
-      callback();
+          resultArray = data.Items.map(function(item) { return objectUnpack(item); });
+          callback(resultArray);
+      };
   });
   } 
   else if (method == 'getItem') {
     ddb.getItem(params, function(err, data) { 
-      if (err) module.exports.error = err;
-      else if (Object.keys(data).length == 0)
-        module.exports.error = "Нет данных по указанному заведению";
-      else  {
-        module.exports.error = "";
-        module.exports.resultObject = objectUnpack(data.Item); 
+      if (err) callback({},err);
+      else if (Object.keys(data).length == 0) {
+        console.log(data);
+        const err = "Нет данных по указанному заведению";
+        callback({},err);
       }
-      callback();
+      else  {
+        resultObject = objectUnpack(data.Item); 
+        callback(resultObject);
+      }
     });
   }
   else if (method == 'putItem') {
     ddb.putItem(params, function(err, data) { 
-      if (err) module.exports.error = err;
-      else module.exports.error = "";
-      callback();
+      if (err) callback("ok",err);
+      else callback();
     });
   }
   else if (method == 'updateItem') {
     ddb.updateItem(params, function(err, data) { 
-      if (err) module.exports.error = err;
-      else module.exports.error = "";
-      callback();
+      if (err) callback("ok",err);
+      else callback();
     });
   }
 }

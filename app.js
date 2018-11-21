@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 
 require('./app/routes/client_routes')(app);
+require('./app/routes/working_day_routes')(app);
 
 app.listen(port, () => {
   console.log('We are live on ' + port);

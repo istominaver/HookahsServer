@@ -1,7 +1,17 @@
-const databaseService = require('../services/database_service');
-const makeResponseService = require('../services/make_response_service');
+var request = require('request');
 
-module.exports = function(app) {
+request('http://localhost:8081/restaurantsList', function (error, response, body) {
+  console.log('error:', error); // Print the error if one occurred
+  console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+  console.log('body:', body); // Print the HTML for the Google homepage.
+});
+
+
+[Тестируемый метод]_[Сценарий]_[Ожидаемое поведение]
+
+
+
+
 
 app.get('/restaurantsList', function(req, res) {
 //sort by likes
@@ -9,7 +19,11 @@ app.get('/restaurantsList', function(req, res) {
   const params = { TableName: 'Restaurants' };
   
   databaseService('scan', params, res, function(resultArray, err) {
-    makeResponseService(action, res, { "restaurants" : resultArray }, err);
+    if(err) makeErrorResponse(action, err, res);
+    else      makeSuccessfulResponse(action, 
+                                     { "restaurants" : resultArray }, 
+                                     res
+                                    );
   });
 });
 
@@ -42,51 +56,48 @@ app.get('/hookahMastersList', function(req, res) {
     }; 
     params.FilterExpression = "atWork = :v1"; 
     params.TableName = "HookahMasters";
-  } 
+  }; 
 
   databaseService('scan', params, res, function(resultArray, err) {
-    makeResponseService(action, res, { "hookahMasters" : resultArray, "restaurantId" : restaurantId}, err);
-    });
+    if(err) makeErrorResponse(action, err, res);
+    else      makeSuccessfulResponse(action, { "hookahMasters" : resultArray, "restaurantId" : restaurantId}, res);
+  });
 });
 
 app.get('/ordersList', function(req, res) {
 //sort by time 
   const action = 'ordersList';
+  let hookahMasterId, clientId; 
+  let params = { TableName : "Orders" };
 
-  if(!req.query.hookahMasterId&&!req.query.clientId) 
-    makeResponseService(action, res, [], "Не верный запрос. Один из параметров: hookahMasterId или clientId долен присутствовать в запросе");
-  else {
-
-    let hookahMasterId, clientId; 
-    let params = { TableName : "Orders" };
-
-    if(req.query.hookahMasterId) {
-      hookahMasterId = req.query.hookahMasterId;
-      params.FilterExpression = "hookahMasterId = :hookahMasterId"; //and date > :date
-      params.ExpressionAttributeValues = {
-        ":hookahMasterId": {
-          S: hookahMasterId
-        }
-        // ":date": {
-        //   N: new Date().getTime() - 4320000 // last 24 hours
-        // }
-      };
-    }
-    else if(req.query.clientId){
-      clientId = req.query.clientId;
-      params.FilterExpression = "clientId = :clientId";
-      params.ExpressionAttributeValues = {
-        ":clientId": {
-          S: clientId
-        }
+  if(req.query.hookahMasterId) {
+    hookahMasterId = req.query.hookahMasterId;
+    params.FilterExpression = "hookahMasterId = :hookahMasterId"; //and date > :date
+    params.ExpressionAttributeValues = {
+      ":hookahMasterId": {
+        S: hookahMasterId
       }
-    }
-
-    databaseService('scan', params, res, function(resultArray, err) {
-      //добавить проверку на дефолтные данные
-      makeResponseService(action, res, { "ordersList" : resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, err);
-    });
+      // ":date": {
+      //   N: new Date().getTime() - 4320000 // last 24 hours
+      // }
+      };
   }
+  else if(req.query.clientId){
+    clientId = req.query.clientId;
+    params.FilterExpression = "clientId = :clientId";
+    params.ExpressionAttributeValues = {
+      ":clientId": {
+        S: clientId
+      }
+    };
+  }
+
+  databaseService('scan', params, res, function(resultArray, err) {
+    if(err) makeErrorResponse(action, err, res);
+    else     
+      //добавить проверку на дефолтные данные
+      makeSuccessfulResponse(action, { "ordersList" : resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, res);
+  });
 });
 
 app.get('/hookahMenu', function(req, res) {
@@ -113,10 +124,10 @@ app.get('/hookahMenu', function(req, res) {
   }; 
 
   databaseService('getItem', paramsCategories, res, function(resultObject, err) {
-    if(err) makeResponseService(action, res, {}, err);
+    if(err) makeErrorResponse(action, err, res);
     else {
       databaseService('scan', paramsMixes, res, function(resultArray, err) {
-        if(err) makeResponseService(action, res, [], err);
+        if(err) makeErrorResponse(action, err, res);
         else {
           resultObject.categories = 
           resultObject.categories.map(function(itemCategory) { 
@@ -127,7 +138,7 @@ app.get('/hookahMenu', function(req, res) {
             });
             return itemCategory; 
           });
-          makeResponseService(action, res, resultObject);
+          makeSuccessfulResponse(action, resultObject, res);
         }
       });
     }     
@@ -200,9 +211,84 @@ app.post('/makeOrder', function(req, res) {
   };
 
   databaseService('putItem', params, res, function(result, err) {
-    makeResponseService(action, res, { "orderId": orderId}, err);
+    if(err) makeErrorResponse(action, err, res);
+    else      makeSuccessfulResponse(action, 
+                                     { "orderId": orderId}, 
+                                     res);
   });
   });
   });
+
+
+  
   });
+
+app.put('/startWorkingDay', function(req, res) {
+//sort by likes
+  const action = 'startWorkingDay';
+
+  const params = {
+  ExpressionAttributeNames: {
+   "#AW": "atWork",
+   "#R": "restaurantId"
+  }, 
+  ExpressionAttributeValues: {
+   ":aw": {
+     S: "true"
+    },
+    ":r": {
+     S: req.query.restaurantId
+    }
+  }, 
+  Key: {
+   "hookahMasterId": {
+     S: req.query.hookahMasterId
+    }
+  }, 
+ // ReturnValues: "ALL_NEW", 
+  TableName: "HookahMasters", 
+  UpdateExpression: "SET #AW = :aw, #R = :r"
+ };
+
+  
+  databaseService('updateItem', params, res, function(resultArray, err) {
+    if(err) makeErrorResponse(action, err, res);
+    else      makeSuccessfulResponse(action, {}, 
+                                     res
+                                    );
+  });
+}); 
+
+app.put('/endWorkingDay', function(req, res) {
+//sort by likes
+  const action = 'endWorkingDay';
+
+  const params = {
+  ExpressionAttributeNames: {
+   "#AW": "atWork"
+  }, 
+  ExpressionAttributeValues: {
+   ":aw": {
+     S: "false"
+    }
+  }, 
+  Key: {
+   "hookahMasterId": {
+     S: req.query.hookahMasterId
+    }
+  }, 
+ // ReturnValues: "ALL_NEW", 
+  TableName: "HookahMasters", 
+  UpdateExpression: "SET #AW = :aw"
+ };
+
+  
+  databaseService('updateItem', params, res, function(resultArray, err) {
+    if(err) makeErrorResponse(action, err, res);
+    else      makeSuccessfulResponse(action, {}, 
+                                     res
+                                    );
+  });
+}); 
+
 }
