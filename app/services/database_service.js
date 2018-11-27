@@ -41,9 +41,9 @@ function objectUnpack(item) {
 
 module.exports = function(method, params, res, callback) {
   if(method == 'scan') {
-    const startTime = Date().getTime();
+    const startTime = new Date().getTime();
     ddb.scan(params, function(err, data) {
-      const finishTime = Date().getTime();
+      const finishTime = new Date().getTime();
       console.log(finishTime-startTime);
       if (err) callback([],err);
       else {
