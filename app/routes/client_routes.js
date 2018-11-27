@@ -138,10 +138,35 @@ app.post('/makeOrder', function(req, res) {
 
   const action = 'makeOrder';
   const orderId = (new Date().getTime()).toString();
+
   const hookahsDDBItem = 
   req.body.hookahs.map(function(item) { 
-    return {"M" : { "mixId": {"S" : item.mixId}, "name": {"S" : item.name}} } 
+    const tabacco = item.tabacco.map(function(item) {
+      return {
+              "M" : {
+                      "brand" : {"S" : item.brand}, 
+                      "sort" : {"S" : item.sort}
+                    } 
+            } 
+    });
+    return {
+              "M" : {
+                      "mixId" : {"S" : item.mixId}, 
+                      "name" : {"S" : item.name}, 
+                      "categoryId" : {"S" : item.categoryId},
+                      "description" : {"S" : item.description},
+                      "filling" : {"S" : item.filling},
+                      "hookahBowl" : {"S" : item.hookahBowl},
+                      "imageURL" : {"S" : item.imageURL},
+                      "likes" : {"N" : item.likes.toString()},
+                      "price" : {"N" : item.price.toString()},
+                      "strength" : {"S" : item.strength},
+                      "tabacco" : {"L" : tabacco},
+                      "restaurantId" : {"S" : item.restaurantId}
+                    } 
+            } 
   });
+
   let hookahMasterName = "Incognito";
   let hookahMasterImageURL = "https://static.vecteezy.com/system/resources/previews/000/014/628/original/hookahman-vector.jpg";
 

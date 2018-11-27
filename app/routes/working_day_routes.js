@@ -7,6 +7,8 @@ app.put('/startWorkingDay', function(req, res) {
 //sort by likes
   const action = 'startWorkingDay';
 
+  console.log("/startWorkingDay");
+
   if(!req.query.hookahMasterId) 
     makeResponseService(action, res, [], "Не верный запрос. Параметр hookahMasterId - обязательный");
   else {
