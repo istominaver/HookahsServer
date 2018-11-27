@@ -6,9 +6,8 @@ module.exports = function(app) {
 app.get('/restaurantsList', function(req, res) {
 //sort by likes
   const action = 'restaurantsList';
-  const params = { TableName: 'Restaurants' };
   
-  databaseService('scan', params, res, function(resultArray, err) {
+  databaseService('restaurants', 'scan', {}, res, function(resultArray, err) {
     makeResponseService(action, res, { "restaurants" : resultArray }, err);
   });
 });
@@ -18,7 +17,6 @@ app.get('/hookahMastersList', function(req, res) {
   const action = 'hookahMastersList';
   let restaurantId; 
   let params = { 
-    TableName : "HookahMasters",
     ExpressionAttributeNames:
     {"#N":"name"},
     ProjectionExpression: "#N, atWork, description, hookahMasterId, imageURL, likes, restaurantId"  
@@ -44,7 +42,7 @@ app.get('/hookahMastersList', function(req, res) {
     params.TableName = "HookahMasters";
   } 
 
-  databaseService('scan', params, res, function(resultArray, err) {
+  databaseService('hookahMasters', 'scan', params, res, function(resultArray, err) {
     makeResponseService(action, res, { "hookahMasters" : resultArray, "restaurantId" : restaurantId}, err);
     });
 });
@@ -58,31 +56,34 @@ app.get('/ordersList', function(req, res) {
   else {
 
     let hookahMasterId, clientId; 
-    let params = { TableName : "Orders" };
 
     if(req.query.hookahMasterId) {
       hookahMasterId = req.query.hookahMasterId;
-      params.FilterExpression = "hookahMasterId = :hookahMasterId"; //and date > :date
-      params.ExpressionAttributeValues = {
-        ":hookahMasterId": {
-          S: hookahMasterId
+      var params = {
+        FilterExpression : "hookahMasterId = :hookahMasterId", //and date > :date
+        ExpressionAttributeValues : {
+          ":hookahMasterId": {
+            S: hookahMasterId
+          }
+          // ":date": {
+          //   N: new Date().getTime() - 4320000 // last 24 hours
+          // }
         }
-        // ":date": {
-        //   N: new Date().getTime() - 4320000 // last 24 hours
-        // }
-      };
+      }
     }
     else if(req.query.clientId){
       clientId = req.query.clientId;
-      params.FilterExpression = "clientId = :clientId";
-      params.ExpressionAttributeValues = {
-        ":clientId": {
-          S: clientId
+      var params = {
+        FilterExpression : "clientId = :clientId",
+        ExpressionAttributeValues : {
+          ":clientId": {
+            S: clientId
+          }
         }
       }
     }
 
-    databaseService('scan', params, res, function(resultArray, err) {
+    databaseService('orders','scan', params, res, function(resultArray, err) {
       //добавить проверку на дефолтные данные
       makeResponseService(action, res, { "ordersList" : resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, err);
     });
@@ -94,44 +95,47 @@ app.get('/hookahMenu', function(req, res) {
   const action = 'hookahMenu';
   const restaurantId = req.query.restaurantId;
 
-  const paramsCategories = {
-    Key: {
+  if(!req.query.restaurantId) 
+    makeResponseService(action, res, {}, "Не верный запрос. Параметр restaurantId обязательный");
+  else {
+
+    const paramsCategories = {
+      Key: {
         "restaurantId": {
           S: restaurantId
-        }},
-      TableName: 'categories'
-  };
+        }}
+    };
 
-  const paramsMixes = {
+    const paramsMixes = {
       ExpressionAttributeValues: {
         ":v1": {
           S: restaurantId
         }
       }, 
-      FilterExpression: "restaurantId = :v1", 
-      TableName: "mixes"
-  }; 
+      FilterExpression: "restaurantId = :v1"
+    }; 
 
-  databaseService('getItem', paramsCategories, res, function(resultObject, err) {
-    if(err) makeResponseService(action, res, {}, err);
-    else {
-      databaseService('scan', paramsMixes, res, function(resultArray, err) {
-        if(err) makeResponseService(action, res, [], err);
-        else {
-          resultObject.categories = 
-          resultObject.categories.map(function(itemCategory) { 
-            itemCategory.mixes = [];
-            resultArray.map(function(item) { 
-              if (item.categoryId == itemCategory.categoryId)
-                itemCategory.mixes.push(item);
+    databaseService('categories','getItem', paramsCategories, res, function(resultObject, err) {
+      if(err) makeResponseService(action, res, {}, err);
+      else {
+        databaseService('mixes','scan', paramsMixes, res, function(resultArray, err) {
+          if(err) makeResponseService(action, res, [], err);
+          else {
+            resultObject.categories = 
+            resultObject.categories.map(function(itemCategory) { 
+              itemCategory.mixes = [];
+              resultArray.map(function(item) { 
+                if (item.categoryId == itemCategory.categoryId)
+                  itemCategory.mixes.push(item);
+              });
+              return itemCategory; 
             });
-            return itemCategory; 
-          });
-          makeResponseService(action, res, resultObject);
-        }
-      });
-    }     
-  });  
+            makeResponseService(action, res, resultObject);
+          }
+        });
+      }     
+    });  
+  }
 });  
 
 app.post('/makeOrder', function(req, res) {
@@ -177,24 +181,22 @@ app.post('/makeOrder', function(req, res) {
     Key: {
         "hookahMasterId": {
           S: req.body.hookahMasterId
-        }},
-      TableName: 'HookahMasters'
+        }}
   };
 
   const paramsRestaurant = {
     Key: {
         "restaurantId": {
           S: req.body.restaurantId
-        }},
-      TableName: 'Restaurants'
+        }}
   };
 
-  databaseService('getItem', paramsHookahMaster, res, function(resultObject, err) {
+  databaseService('hookahMasters','getItem', paramsHookahMaster, res, function(resultObject, err) {
     if(!err) {
       hookahMasterName = resultObject.name;
       hookahMasterImageURL = resultObject.imageURL;
     }
-    databaseService('getItem', paramsRestaurant, res, function(resultObject, err) {
+    databaseService('restaurants', 'getItem', paramsRestaurant, res, function(resultObject, err) {
     if(!err) {
       restaurantName = resultObject.name;
       restaurantImageURL = resultObject.photos[0];
@@ -220,11 +222,10 @@ app.post('/makeOrder', function(req, res) {
   }
 
   const params = {
-    'TableName': "Orders",
     'Item': item
   };
 
-  databaseService('putItem', params, res, function(result, err) {
+  databaseService('orders','putItem', params, res, function(result, err) {
     makeResponseService(action, res, { "orderId": orderId}, err);
   });
   });

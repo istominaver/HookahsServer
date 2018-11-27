@@ -1,9 +1,17 @@
 const AWS = require('aws-sdk');
 
 AWS.config.update({ //make config
-  region: 'us-east-1' 
+  region: 'eu-central-1' 
 });
 const ddb = new AWS.DynamoDB();
+
+const tableNames = {
+  'restaurants' : 'Restaurants',
+  'orders':'Orders',
+  'mixes':'Mixes',
+  'hookahMasters':'HookahMasters',
+  'categories':'Categories'
+};
 
 function objectUnpack(item) { 
             var tempObj = {};
@@ -39,12 +47,12 @@ function objectUnpack(item) {
             return tempObj;
           }
 
-module.exports = function(method, params, res, callback) {
+module.exports = function(tableId, method, params, res, callback) {
+  
+  params.TableName = tableNames[tableId];
+
   if(method == 'scan') {
-    const startTime = new Date().getTime();
     ddb.scan(params, function(err, data) {
-      const finishTime = new Date().getTime();
-      console.log(finishTime-startTime);
       if (err) callback([],err);
       else {
           resultArray = data.Items.map(function(item) { return objectUnpack(item); });

@@ -7,10 +7,8 @@ app.put('/startWorkingDay', function(req, res) {
 //sort by likes
   const action = 'startWorkingDay';
 
-  console.log("/startWorkingDay");
-
-  if(!req.query.hookahMasterId) 
-    makeResponseService(action, res, [], "Не верный запрос. Параметр hookahMasterId - обязательный");
+  if(!req.query.hookahMasterId||!req.query.restaurantId) 
+    makeResponseService(action, res, [], "Не верный запрос. Параметры hookahMasterId и restaurantId - обязательные");
   else {
     const params = {
     ExpressionAttributeNames: {
@@ -30,12 +28,11 @@ app.put('/startWorkingDay', function(req, res) {
         S: req.query.hookahMasterId
       }
     }, 
-    TableName: "HookahMasters", 
     UpdateExpression: "SET #AW = :aw, #R = :restaurantId"
     };
 
   
-    databaseService('updateItem', params, res, function(resultArray, err) {
+    databaseService('hookahMasters','updateItem', params, res, function(resultArray, err) {
       makeResponseService(action, res, {}, err);
     });
   }
@@ -61,13 +58,12 @@ app.put('/endWorkingDay', function(req, res) {
         "hookahMasterId": {
           S: req.query.hookahMasterId
         }
-      }, 
-      TableName: "HookahMasters", 
+      },  
       UpdateExpression: "SET #AW = :aw"
     };
 
   
-    databaseService('updateItem', params, res, function(resultArray, err) {
+    databaseService('hookahMasters', 'updateItem', params, res, function(resultArray, err) {
       makeResponseService(action, res, {}, err);
     });
   }
