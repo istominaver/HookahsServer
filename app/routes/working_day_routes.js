@@ -1,6 +1,31 @@
 const databaseService = require('../services/database_service');
 const makeResponseService = require('../services/make_response_service');
 
+function getDateTime() {
+
+    var date = new Date();
+
+    var hour = date.getHours();
+    hour = (hour < 10 ? "0" : "") + hour;
+
+    var min  = date.getMinutes();
+    min = (min < 10 ? "0" : "") + min;
+
+    var sec  = date.getSeconds();
+    sec = (sec < 10 ? "0" : "") + sec;
+
+    var year = date.getFullYear();
+
+    var month = date.getMonth() + 1;
+    month = (month < 10 ? "0" : "") + month;
+
+    var day  = date.getDate();
+    day = (day < 10 ? "0" : "") + day;
+
+    return year + ":" + month + ":" + day + ":" + hour + ":" + min + ":" + sec;
+
+}
+
 module.exports = function(app) {
 
 app.put('/startWorkingDay', function(req, res) {
@@ -30,10 +55,9 @@ app.put('/startWorkingDay', function(req, res) {
     }, 
     UpdateExpression: "SET #AW = :aw, #R = :restaurantId"
     };
-
   
     databaseService('hookahMasters','updateItem', params, res, function(resultArray, err) {
-      makeResponseService(action, res, {}, err);
+      makeResponseService(action, res, {"dateTime": getDateTime()}, err);
     });
   }
 }); 
@@ -61,10 +85,9 @@ app.put('/endWorkingDay', function(req, res) {
       },  
       UpdateExpression: "SET #AW = :aw"
     };
-
   
     databaseService('hookahMasters', 'updateItem', params, res, function(resultArray, err) {
-      makeResponseService(action, res, {}, err);
+      makeResponseService(action, res, {"dateTime": getDateTime()}, err);
     });
   }
 }); 

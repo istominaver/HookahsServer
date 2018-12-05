@@ -10,7 +10,8 @@ const tableNames = {
   'orders':'Orders',
   'mixes':'Mixes',
   'hookahMasters':'HookahMasters',
-  'categories':'Categories'
+  'categories':'Categories',
+  'clients': 'Clients'
 };
 
 function objectUnpack(item) { 
@@ -63,10 +64,6 @@ module.exports = function(tableId, method, params, res, callback) {
   else if (method == 'getItem') {
     ddb.getItem(params, function(err, data) { 
       if (err) callback({},err);
-      else if (Object.keys(data).length == 0) {
-        const err = "Нет данных по указанному заведению";
-        callback({},err);
-      }
       else  {
         resultObject = objectUnpack(data.Item); 
         callback(resultObject);

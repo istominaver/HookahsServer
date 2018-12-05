@@ -4,7 +4,7 @@ module.exports = function(action, res, data, err) {
     "action" : action,
     "result" : "error",
     "reqId"  : new Date().getTime().toString(), 
-    "error"    : err
+    "error"  : err
     });
   else res.status(200).json(
     {

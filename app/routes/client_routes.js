@@ -1,5 +1,7 @@
 const databaseService = require('../services/database_service');
 const makeResponseService = require('../services/make_response_service');
+const randomStr = require('randomstring');
+
 
 module.exports = function(app) {
 
@@ -116,7 +118,8 @@ app.get('/hookahMenu', function(req, res) {
     }; 
 
     databaseService('categories','getItem', paramsCategories, res, function(resultObject, err) {
-      if(err) makeResponseService(action, res, {}, err);
+      if(Object.keys(resultObject).length == 0) makeResponseService(action, res, {}, 'Нет данных по указанному заведению');
+      else if(err) makeResponseService(action, res, {}, err);
       else {
         databaseService('mixes','scan', paramsMixes, res, function(resultArray, err) {
           if(err) makeResponseService(action, res, [], err);
@@ -192,12 +195,12 @@ app.post('/makeOrder', function(req, res) {
   };
 
   databaseService('hookahMasters','getItem', paramsHookahMaster, res, function(resultObject, err) {
-    if(!err) {
+    if(!err && Object.keys(resultObject).length != 0) {
       hookahMasterName = resultObject.name;
       hookahMasterImageURL = resultObject.imageURL;
     }
     databaseService('restaurants', 'getItem', paramsRestaurant, res, function(resultObject, err) {
-    if(!err) {
+    if(!err && Object.keys(resultObject).length != 0) {
       restaurantName = resultObject.name;
       restaurantImageURL = resultObject.photos[0];
     }
@@ -231,4 +234,139 @@ app.post('/makeOrder', function(req, res) {
   });
   });
   });
+
+app.post('/clientAuth', function(req, res) {
+
+  const action = 'clientAuth';
+  const phone = req.body.phone;
+  const password = req.body.password;
+  const name = req.body.name;
+
+  if(!phone||!password||!name) {
+    //add phone validation
+    //password validation
+    //namr char validation
+     makeResponseService(action, res, {}, "Не верный запрос. Параметры phone, password и name обязательные");
+  }
+  else {
+    const searchParams = {
+      Key: {
+        "phone": {
+          S: phone
+        }}
+    };
+
+    databaseService('clients', 'getItem', searchParams, res, function(resultObject, err) {
+      if(err) makeResponseService(action, res, {}, err);
+      else if (Object.keys(resultObject).length == 0) {
+
+        const clientId = (new Date().getTime()).toString();
+        const params = {
+          'Item': {
+            "phone":                       {'S': phone},
+            "name":                        {'S': name},
+            "clientId":                    {'S': clientId},              
+            "password":                    {'S': password},
+            "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
+            "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
+            "enterConfirmationCodeCouner": {'N': '0'}
+          }
+        }
+
+        databaseService('clients','putItem', params, res, function(result, err) {
+            makeResponseService(action, res, { "clientId": clientId, "state": "new" }, err);
+        });
+      }
+      else if(resultObject.confirmed != "true") {
+        //change on expires attribute checking
+        makeResponseService(action, res, { "clientId": resultObject.clientId, "state": "needPhoneConfirmation" }, err);
+        if(resultObject.codeCreationTime < (new Date().getTime() - 300000)) {
+
+          const updateParams = {
+            ExpressionAttributeNames: {
+              "#code": "code",
+              "#codeCreationTime": "codeCreationTime"
+            }, 
+            ExpressionAttributeValues: {
+              ":code": {
+                N: randomStr.generate({length: 6, charset: 'numeric'})
+              },
+              ":codeCreationTime": {
+                N: (new Date().getTime()).toString()
+              }
+            }, 
+            Key: {
+              "phone": {
+                S: phone
+              }
+            }, 
+            UpdateExpression: "SET #code = :code, #codeCreationTime = :codeCreationTime"
+          };
+  
+        databaseService('clients','updateItem', updateParams, res, function(result, err) {});
+        }
+
+      }
+      else if(password == resultObject.password) {
+        makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
+      }
+      else {
+        makeResponseService(action, res, {}, 'Не верный логин или пароль');
+        //превышено количество попыток ввода пароля?
+      }
+    });
+
+  }
+});
+
+app.post('/checkConfirmationCode', function(req, res) {
+  const action = 'checkConfirmationCode';
+  const phone = req.body.phone;
+  const confirmationCode = req.body.confirmationCode;
+
+  if(!phone||!confirmationCode) {
+    //add phone validation
+    //confirmationCode - numeric, 6 signs length
+    makeResponseService(action, res, {}, "Не верный запрос. Параметры phone и confirmationCode обязательные");
+  }
+  else {
+     const searchParams = {
+      Key: {
+        "phone": {
+          S: phone
+        }}
+    };
+
+    databaseService('clients', 'getItem', searchParams, res, function(resultObject, err) {
+      if(err) makeResponseService(action, res, {}, err);
+      else if (Object.keys(resultObject).length == 0) {
+        makeResponseService(action, res, {}, 'Не найдены данные по указанному номеру телефона.');
+      }
+      else if(parseInt(confirmationCode) == resultObject.code) {
+        makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
+        const params = {
+          'Item': {
+            'phone': {'S':phone},
+            'clientId': {'S':resultObject.clientId},
+            'password': {'S':resultObject.password},
+            'name': {'S':resultObject.name},
+            'confirmed': {'S':'true'}
+          }
+        };
+
+        databaseService('clients','putItem', params, res, function(result, err) {});
+      }
+      else if(resultObject.enterConfirmationCodeCouner < 3) {
+        makeResponseService(action, res, {}, 'Не верный код подтверждения.');
+// обновить значение каунтера в базе
+      }
+      else if(resultObject.enterConfirmationCodeCouner > 3) {
+         makeResponseService(action, res, {}, 'Вы превысили допустимое количество попыток ввода кода подтверждения');
+// обновить значение каунтера в базе
+      }
+    });
+
+}
+});
+
 }
