@@ -269,7 +269,7 @@ app.post('/clientAuth', function(req, res) {
             "password":                    {'S': password},
             "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
             "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
-            "enterConfirmationCodeCouner": {'N': '0'}
+            "enterConfirmationCodeCounter": {'N': '0'}
           }
         }
 
@@ -278,21 +278,19 @@ app.post('/clientAuth', function(req, res) {
         });
       }
       else if(resultObject.confirmed != "true") {
-        //change on expires attribute checking
         makeResponseService(action, res, { "clientId": resultObject.clientId, "state": "needPhoneConfirmation" }, err);
-        if(resultObject.codeCreationTime < (new Date().getTime() - 300000)) {
-
-          const updateParams = {
+        if(name != resultObject.name || password != resultObject.password){
+          const params = {
             ExpressionAttributeNames: {
-              "#code": "code",
-              "#codeCreationTime": "codeCreationTime"
+              "#name": "name",
+              "#password": "password"
             }, 
             ExpressionAttributeValues: {
-              ":code": {
-                N: randomStr.generate({length: 6, charset: 'numeric'})
+              ":name": {
+                S: name
               },
-              ":codeCreationTime": {
-                N: (new Date().getTime()).toString()
+              ":password": {
+                S: password
               }
             }, 
             Key: {
@@ -300,12 +298,11 @@ app.post('/clientAuth', function(req, res) {
                 S: phone
               }
             }, 
-            UpdateExpression: "SET #code = :code, #codeCreationTime = :codeCreationTime"
+            UpdateExpression: "SET #name = :name, #password = :password"
           };
-  
-        databaseService('clients','updateItem', updateParams, res, function(result, err) {});
-        }
 
+        databaseService('clients','updateItem', params, res, function(result, err) {});
+        }
       }
       else if(password == resultObject.password) {
         makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
@@ -340,10 +337,9 @@ app.post('/checkConfirmationCode', function(req, res) {
     databaseService('clients', 'getItem', searchParams, res, function(resultObject, err) {
       if(err) makeResponseService(action, res, {}, err);
       else if (Object.keys(resultObject).length == 0) {
-        makeResponseService(action, res, {}, 'Не найдены данные по указанному номеру телефона.');
+        makeResponseService(action, res, {}, 'Срок действия временного кода истек.');
       }
       else if(parseInt(confirmationCode) == resultObject.code) {
-        makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
         const params = {
           'Item': {
             'phone': {'S':phone},
@@ -354,15 +350,34 @@ app.post('/checkConfirmationCode', function(req, res) {
           }
         };
 
-        databaseService('clients','putItem', params, res, function(result, err) {});
+        databaseService('clients','putItem', params, res, function(result, err) { 
+          makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
+       });
       }
-      else if(resultObject.enterConfirmationCodeCouner < 3) {
+      else if(resultObject.enterConfirmationCodeCounter < 3) {
         makeResponseService(action, res, {}, 'Не верный код подтверждения.');
-// обновить значение каунтера в базе
+
+        const params = {
+          ExpressionAttributeNames: {
+            "#eccc": "enterConfirmationCodeCounter"
+          }, 
+          ExpressionAttributeValues: {
+            ":eccc": {
+              N: (parseInt(resultObject.enterConfirmationCodeCounter) + 1).toString()
+            }
+          }, 
+          Key: {
+            "phone": {
+              S: phone
+            }
+          }, 
+          UpdateExpression: "SET #eccc = :eccc"
+        };
+
+        databaseService('clients','updateItem', params, res, function(result, err) { console.log(params)});
       }
-      else if(resultObject.enterConfirmationCodeCouner > 3) {
+      else if(resultObject.enterConfirmationCodeCounter >= 3) {
          makeResponseService(action, res, {}, 'Вы превысили допустимое количество попыток ввода кода подтверждения');
-// обновить значение каунтера в базе
       }
     });
 
