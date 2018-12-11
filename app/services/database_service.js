@@ -48,7 +48,7 @@ function objectUnpack(item) {
             return tempObj;
           }
 
-module.exports = function(tableId, method, params, res, callback) {
+module.exports = function(tableId, method, params, callback) {
   
   params.TableName = tableNames[tableId];
 

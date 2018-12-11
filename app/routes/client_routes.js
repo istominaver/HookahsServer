@@ -1,7 +1,9 @@
+const randomStr = require('randomstring');
+const bcrypt = require('bcrypt');
+const validate = require('express-validation');
+const validation = require('./validation/client_routes');
 const databaseService = require('../services/database_service');
 const makeResponseService = require('../services/make_response_service');
-const randomStr = require('randomstring');
-
 
 module.exports = function(app) {
 
@@ -9,7 +11,7 @@ app.get('/restaurantsList', function(req, res) {
 //sort by likes
   const action = 'restaurantsList';
   
-  databaseService('restaurants', 'scan', {}, res, function(resultArray, err) {
+  databaseService('restaurants', 'scan', {}, function(resultArray, err) {
     makeResponseService(action, res, { "restaurants" : resultArray }, err);
   });
 });
@@ -44,7 +46,7 @@ app.get('/hookahMastersList', function(req, res) {
     params.TableName = "HookahMasters";
   } 
 
-  databaseService('hookahMasters', 'scan', params, res, function(resultArray, err) {
+  databaseService('hookahMasters', 'scan', params, function(resultArray, err) {
     makeResponseService(action, res, { "hookahMasters" : resultArray, "restaurantId" : restaurantId}, err);
     });
 });
@@ -85,22 +87,17 @@ app.get('/ordersList', function(req, res) {
       }
     }
 
-    databaseService('orders','scan', params, res, function(resultArray, err) {
+    databaseService('orders','scan', params, function(resultArray, err) {
       //добавить проверку на дефолтные данные
       makeResponseService(action, res, { "ordersList" : resultArray, "clientId" : clientId, "hookahMasterId" : hookahMasterId }, err);
     });
   }
 });
 
-app.get('/hookahMenu', function(req, res) {
+app.get('/hookahMenu', validate(validation.hookahMenu), function(req, res) {
 
   const action = 'hookahMenu';
   const restaurantId = req.query.restaurantId;
-
-  if(!req.query.restaurantId) 
-    makeResponseService(action, res, {}, "Не верный запрос. Параметр restaurantId обязательный");
-  else {
-
     const paramsCategories = {
       Key: {
         "restaurantId": {
@@ -117,11 +114,11 @@ app.get('/hookahMenu', function(req, res) {
       FilterExpression: "restaurantId = :v1"
     }; 
 
-    databaseService('categories','getItem', paramsCategories, res, function(resultObject, err) {
+    databaseService('categories','getItem', paramsCategories, function(resultObject, err) {
       if(Object.keys(resultObject).length == 0) makeResponseService(action, res, {}, 'Нет данных по указанному заведению');
       else if(err) makeResponseService(action, res, {}, err);
       else {
-        databaseService('mixes','scan', paramsMixes, res, function(resultArray, err) {
+        databaseService('mixes','scan', paramsMixes, function(resultArray, err) {
           if(err) makeResponseService(action, res, [], err);
           else {
             resultObject.categories = 
@@ -138,10 +135,9 @@ app.get('/hookahMenu', function(req, res) {
         });
       }     
     });  
-  }
 });  
 
-app.post('/makeOrder', function(req, res) {
+app.post('/makeOrder', validate(validation.makeOrder), function(req, res) {
 
   const action = 'makeOrder';
   const orderId = (new Date().getTime()).toString();
@@ -194,22 +190,22 @@ app.post('/makeOrder', function(req, res) {
         }}
   };
 
-  databaseService('hookahMasters','getItem', paramsHookahMaster, res, function(resultObject, err) {
+  databaseService('hookahMasters','getItem', paramsHookahMaster, function(resultObject, err) {
     if(!err && Object.keys(resultObject).length != 0) {
       hookahMasterName = resultObject.name;
       hookahMasterImageURL = resultObject.imageURL;
     }
-    databaseService('restaurants', 'getItem', paramsRestaurant, res, function(resultObject, err) {
+    databaseService('restaurants', 'getItem', paramsRestaurant, function(resultObject, err) {
     if(!err && Object.keys(resultObject).length != 0) {
       restaurantName = resultObject.name;
       restaurantImageURL = resultObject.photos[0];
     }
     const item = {
-    "amount":               {'S': req.body.amount},
+    "amount":               {'S': req.body.amount.toString()},
     "clientId":             {'S': req.body.clientId},
     "clientName":           {'S': req.body.clientName},
     "condition":            {'S': "new"},
-    "peopleCount":          {'N': req.body.peopleCount},
+    "peopleCount":          {'N': req.body.peopleCount.toString()},
     "hookahMasterId":       {'S': req.body.hookahMasterId},
     "hookahMasterName":     {'S': hookahMasterName},
     "hookahMasterImageURL": {'S': hookahMasterImageURL},
@@ -217,18 +213,18 @@ app.post('/makeOrder', function(req, res) {
     "orderId":              {'S': orderId},
     "payment":              {'S': "false"},
     "phoneNumber":          {'S': req.body.phoneNumber},
-    "tableNumber":          {'S': req.body.tableNumber},
+    "tableNumber":          {'S': req.body.tableNumber.toString()},
     "restaurantId":         {'S': req.body.restaurantId},
     "restaurantName":       {'S': restaurantName},
     "restaurantImageURL":   {'S': restaurantImageURL},
-    "dueDate":              {'S': req.body.dueDate}
+    "dueDate":              {'S': req.body.dueDate.toString()}
   }
 
   const params = {
     'Item': item
   };
 
-  databaseService('orders','putItem', params, res, function(result, err) {
+  databaseService('orders','putItem', params, function(result, err) {
     makeResponseService(action, res, { "orderId": orderId}, err);
   });
   });
@@ -243,10 +239,10 @@ app.post('/clientAuth', function(req, res) {
   const name = req.body.name;
 
   if(!phone||!password||!name) {
-    //add phone validation
+    //add phone validation and format restrictions
     //password validation
     //namr char validation
-     makeResponseService(action, res, {}, "Не верный запрос. Параметры phone, password и name обязательные");
+     makeResponseService(action, res, {}, {"errorType":"software","errorCode":"incorrectIncomingParameters","errorText":"Не верный запрос. Параметры phone, password и name обязательные."});
   }
   else {
     const searchParams = {
@@ -256,63 +252,89 @@ app.post('/clientAuth', function(req, res) {
         }}
     };
 
-    databaseService('clients', 'getItem', searchParams, res, function(resultObject, err) {
+    databaseService('clients', 'getItem', searchParams, function(resultObject, err) {
       if(err) makeResponseService(action, res, {}, err);
       else if (Object.keys(resultObject).length == 0) {
+        bcrypt.hash(password, 10, function(err, hash) {
 
-        const clientId = (new Date().getTime()).toString();
-        const params = {
-          'Item': {
-            "phone":                       {'S': phone},
-            "name":                        {'S': name},
-            "clientId":                    {'S': clientId},              
-            "password":                    {'S': password},
-            "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
-            "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
-            "enterConfirmationCodeCounter": {'N': '0'}
+          const clientId = (new Date().getTime()).toString();
+          const params = {
+            'Item': {
+              "phone":                       {'S': phone},
+              "name":                        {'S': name},
+              "clientId":                    {'S': clientId},              
+              "password":                    {'S': hash},
+              "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
+              "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
+              "enterConfirmationCodeCounter": {'N': '0'}
+            }
           }
-        }
 
-        databaseService('clients','putItem', params, res, function(result, err) {
-            makeResponseService(action, res, { "clientId": clientId, "state": "new" }, err);
-        });
+          databaseService('clients','putItem', params, function(result, err) {
+            makeResponseService(action, res, { "clientId": clientId, "state": "needPhoneConfirmation" }, err);
+          });
+       });
       }
       else if(resultObject.confirmed != "true") {
         makeResponseService(action, res, { "clientId": resultObject.clientId, "state": "needPhoneConfirmation" }, err);
-        if(name != resultObject.name || password != resultObject.password){
-          const params = {
-            ExpressionAttributeNames: {
-              "#name": "name",
-              "#password": "password"
-            }, 
-            ExpressionAttributeValues: {
-              ":name": {
-                S: name
-              },
-              ":password": {
-                S: password
-              }
-            }, 
-            Key: {
-              "phone": {
-                S: phone
-              }
-            }, 
-            UpdateExpression: "SET #name = :name, #password = :password"
-          };
+        bcrypt.compare(password, resultObject.password, function(err, isEqual) {
+          if(name != resultObject.name || isEqual != true){
+            bcrypt.hash(password, 10, function(err, hash) {
+              const params = {
+                ExpressionAttributeNames: {
+                  "#name": "name",
+                  "#password": "password"
+                }, 
+                ExpressionAttributeValues: {
+                  ":name": {
+                  S: name
+                  },
+                  ":password": {
+                    S: hash
+                  }
+                }, 
+                Key: {
+                  "phone": {
+                    S: phone
+                  }
+                }, 
+                UpdateExpression: "SET #name = :name, #password = :password"
+              };
 
-        databaseService('clients','updateItem', params, res, function(result, err) {});
+              databaseService('clients','updateItem', params, function(result, err) {});
+            });
+          }
+        });
+      }
+      else bcrypt.compare(password, resultObject.password, function(err, isEqual) {
+        if(isEqual == true) { 
+          makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
+          if(name != resultObject.name){
+            const params = {
+              ExpressionAttributeNames: {
+                "#name": "name"
+              }, 
+              ExpressionAttributeValues: {
+                ":name": {
+                  S: name
+                }
+              }, 
+              Key: {
+                "phone": {
+                  S: phone
+                }
+              }, 
+              UpdateExpression: "SET #name = :name"
+            };
+
+            databaseService('clients','updateItem', params, function(result, err) {});
+          }
         }
-      }
-      else if(password == resultObject.password) {
-        makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
-      }
-      else {
-        makeResponseService(action, res, {}, 'Не верный логин или пароль');
-        //превышено количество попыток ввода пароля?
-      }
+        else {
+          makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"authIncomingDataError","errorText":'Не верный логин или пароль.'});
+        }
+      });      
     });
-
   }
 });
 
@@ -324,7 +346,7 @@ app.post('/checkConfirmationCode', function(req, res) {
   if(!phone||!confirmationCode) {
     //add phone validation
     //confirmationCode - numeric, 6 signs length
-    makeResponseService(action, res, {}, "Не верный запрос. Параметры phone и confirmationCode обязательные");
+    makeResponseService(action, res, {}, {"errorType":"software","errorCode":"incorrectIncomingParameters","errorText":"Не верный запрос. Параметры phone и confirmationCode обязательные."});
   }
   else {
      const searchParams = {
@@ -334,11 +356,12 @@ app.post('/checkConfirmationCode', function(req, res) {
         }}
     };
 
-    databaseService('clients', 'getItem', searchParams, res, function(resultObject, err) {
+    databaseService('clients', 'getItem', searchParams, function(resultObject, err) {
       if(err) makeResponseService(action, res, {}, err);
       else if (Object.keys(resultObject).length == 0) {
-        makeResponseService(action, res, {}, 'Срок действия временного кода истек.');
+        makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"enterConfirmationCodeTimeout","errorText":'Срок действия временного кода истек.'});
       }
+      //if confirmed true - response authorized
       else if(parseInt(confirmationCode) == resultObject.code) {
         const params = {
           'Item': {
@@ -350,12 +373,12 @@ app.post('/checkConfirmationCode', function(req, res) {
           }
         };
 
-        databaseService('clients','putItem', params, res, function(result, err) { 
+        databaseService('clients','putItem', params, function(result, err) { 
           makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
        });
       }
       else if(resultObject.enterConfirmationCodeCounter < 3) {
-        makeResponseService(action, res, {}, 'Не верный код подтверждения.');
+        makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"confirmationCodeInputError","errorText":'Неверный код подтверждения, попробуйте снова.'});
 
         const params = {
           ExpressionAttributeNames: {
@@ -374,14 +397,19 @@ app.post('/checkConfirmationCode', function(req, res) {
           UpdateExpression: "SET #eccc = :eccc"
         };
 
-        databaseService('clients','updateItem', params, res, function(result, err) { console.log(params)});
+        databaseService('clients','updateItem', params, function(result, err) { console.log(params)});
       }
       else if(resultObject.enterConfirmationCodeCounter >= 3) {
-         makeResponseService(action, res, {}, 'Вы превысили допустимое количество попыток ввода кода подтверждения');
+         makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"confirmationCodeInputLimit","errorText":'Вы превысили допустимое количество попыток ввода кода подтверждения.'});
       }
     });
 
 }
 });
+
+// app.use(function(err, req, res, next){
+//   if (err instanceof validate.ValidationError) return res.status(err.status).json(err);
+//   else {return res.status(500).send(err.stack);}
+// });
 
 }
