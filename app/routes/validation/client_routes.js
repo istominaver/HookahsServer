@@ -31,10 +31,23 @@ module.exports = {
   		clientId : Joi.string().required(), 
   		clientName : Joi.string().required(), 
   		peopleCount : Joi.number().positive().integer().required(),
-  		phoneNumber : Joi.string().regex(/^(\d{12})/).required(),
+  		phoneNumber : Joi.string().regex(/^(\d{6,14})$/).required(),
   		tableNumber : Joi.number().positive().integer().required(),
   		dueDate : Joi.date().min('now')
                                        
+  	}
+  },
+  clientAuth: {
+  	body: {
+  	  phone : Joi.string().regex(/^(\d{6,14})$/).required(),
+  	  password : Joi.string().regex(/^.\S{3,30}$/).required(), //что угодно без пробелов
+  	  name : Joi.string().regex(/^[а-яёa-z]{1,30}$/i).required(),
+  	}
+  },
+  checkConfirmationCode: {
+    body: {
+  	  phone : Joi.string().regex(/^(\d{6,14})$/).required(),
+  	  confirmationCode : Joi.string().regex(/^(\d{6})$/).required()
   	}
   }
 };

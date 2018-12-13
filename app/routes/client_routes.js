@@ -20,6 +20,7 @@ app.get('/hookahMastersList', function(req, res) {
 //sort by likes 
   const action = 'hookahMastersList';
   let restaurantId; 
+  let responseObject = { "hookahMasters" : []};
   let params = { 
     ExpressionAttributeNames:
     {"#N":"name"},
@@ -37,6 +38,7 @@ app.get('/hookahMastersList', function(req, res) {
         S: "true"
       }
       };
+      responseObject.restaurantId = restaurantId;
   }
   else {
     params.ExpressionAttributeValues = {
@@ -47,7 +49,8 @@ app.get('/hookahMastersList', function(req, res) {
   } 
 
   databaseService('hookahMasters', 'scan', params, function(resultArray, err) {
-    makeResponseService(action, res, { "hookahMasters" : resultArray, "restaurantId" : restaurantId}, err);
+    responseObject.hookahMasters = resultArray;
+    makeResponseService(action, res, responseObject, err);
     });
 });
 
@@ -56,7 +59,7 @@ app.get('/ordersList', function(req, res) {
   const action = 'ordersList';
 
   if(!req.query.hookahMasterId&&!req.query.clientId) 
-    makeResponseService(action, res, [], "Не верный запрос. Один из параметров: hookahMasterId или clientId долен присутствовать в запросе");
+    makeResponseService("400_ordersList", res);
   else {
 
     let hookahMasterId, clientId; 
@@ -231,26 +234,19 @@ app.post('/makeOrder', validate(validation.makeOrder), function(req, res) {
   });
   });
 
-app.post('/clientAuth', function(req, res) {
+app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
 
   const action = 'clientAuth';
   const phone = req.body.phone;
   const password = req.body.password;
   const name = req.body.name;
 
-  if(!phone||!password||!name) {
-    //add phone validation and format restrictions
-    //password validation
-    //namr char validation
-     makeResponseService(action, res, {}, {"errorType":"software","errorCode":"incorrectIncomingParameters","errorText":"Не верный запрос. Параметры phone, password и name обязательные."});
-  }
-  else {
-    const searchParams = {
-      Key: {
-        "phone": {
-          S: phone
-        }}
-    };
+  const searchParams = {
+    Key: {
+      "phone": {
+        S: phone
+      }}
+  };
 
     databaseService('clients', 'getItem', searchParams, function(resultObject, err) {
       if(err) makeResponseService(action, res, {}, err);
@@ -335,20 +331,13 @@ app.post('/clientAuth', function(req, res) {
         }
       });      
     });
-  }
 });
 
-app.post('/checkConfirmationCode', function(req, res) {
+app.post('/checkConfirmationCode', validate(validation.checkConfirmationCode), function(req, res) {
   const action = 'checkConfirmationCode';
   const phone = req.body.phone;
   const confirmationCode = req.body.confirmationCode;
 
-  if(!phone||!confirmationCode) {
-    //add phone validation
-    //confirmationCode - numeric, 6 signs length
-    makeResponseService(action, res, {}, {"errorType":"software","errorCode":"incorrectIncomingParameters","errorText":"Не верный запрос. Параметры phone и confirmationCode обязательные."});
-  }
-  else {
      const searchParams = {
       Key: {
         "phone": {
@@ -361,7 +350,9 @@ app.post('/checkConfirmationCode', function(req, res) {
       else if (Object.keys(resultObject).length == 0) {
         makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"enterConfirmationCodeTimeout","errorText":'Срок действия временного кода истек.'});
       }
-      //if confirmed true - response authorized
+      else if(resultObject.confirmed == "true") {
+        makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"alreadyСonfirmed","errorText":'Телефон подтвержден ранее, необходимо пройти авторизацию.'});
+      } 
       else if(parseInt(confirmationCode) == resultObject.code) {
         const params = {
           'Item': {
@@ -397,14 +388,13 @@ app.post('/checkConfirmationCode', function(req, res) {
           UpdateExpression: "SET #eccc = :eccc"
         };
 
-        databaseService('clients','updateItem', params, function(result, err) { console.log(params)});
+        databaseService('clients','updateItem', params, function(result, err) {});
       }
       else if(resultObject.enterConfirmationCodeCounter >= 3) {
          makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"confirmationCodeInputLimit","errorText":'Вы превысили допустимое количество попыток ввода кода подтверждения.'});
       }
     });
 
-}
 });
 
 // app.use(function(err, req, res, next){
