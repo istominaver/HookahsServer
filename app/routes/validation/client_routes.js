@@ -39,9 +39,8 @@ module.exports = {
   },
   clientAuth: {
   	body: {
-  	  phone : Joi.string().regex(/^(\d{6,14})$/).required(),
-  	  password : Joi.string().regex(/^.\S{3,30}$/).required(), //что угодно без пробелов
-  	  name : Joi.string().regex(/^[а-яёa-z]{1,30}$/i).required(),
+  	  phone : Joi.string().regex(/^(\d{6,14})$/).required(), 
+  	  name : Joi.string().regex(/^[а-яёa-z]{1,30}$/i).required()
   	}
   },
   checkConfirmationCode: {

@@ -1,3 +1,5 @@
+const validate = require('express-validation');
+const validation = require('./validation/employee_routes');
 const databaseService = require('../services/database_service');
 const makeResponseService = require('../services/make_response_service');
 
@@ -91,5 +93,42 @@ app.put('/endWorkingDay', function(req, res) {
     });
   }
 }); 
+
+app.put('/hookahMix', function(req, res) {
+  //add "hookahMasterId": "0",!!!!!!!!
+  const action = 'hookahMenu';
+  const mixId = (new Date().getTime()).toString();
+  const tabacco = req.body.tabacco.map(function(item) {
+      return {
+              "M" : {
+                      "brand" : {"S" : item.brand}, 
+                      "sort" : {"S" : item.sort}
+                    } 
+            } 
+    });
+  const hookahsDDBItem = {
+                      "hookahMasterId": {"S" : req.body.hookahMasterId},
+                      "mixId" : {"S" : mixId}, 
+                      "name" : {"S" : req.body.name}, 
+                      "categoryId" : {"S" : req.body.categoryId},
+                      "description" : {"S" : req.body.description},
+                      "filling" : {"S" : req.body.filling},
+                      "hookahBowl" : {"S" : req.body.hookahBowl},
+                      "imageURL" : {"S" : req.body.imageURL},
+                      "likes" : {"N" : '0'},
+                      "price" : {"N" : req.body.price.toString()},
+                      "strength" : {"S" : req.body.strength},
+                      "tabacco" : {"L" : tabacco},
+                      "restaurantId" : {"S" : req.body.restaurantId}
+            } ;
+
+  const params = {
+    'Item': hookahsDDBItem
+  };
+
+  databaseService('mixes','putItem', params, function(result, err) {
+    makeResponseService(action, res, { "mixId": mixId}, err);
+  });
+  });
 
 }

@@ -1,5 +1,4 @@
 const randomStr = require('randomstring');
-const bcrypt = require('bcrypt');
 const validate = require('express-validation');
 const validation = require('./validation/client_routes');
 const databaseService = require('../services/database_service');
@@ -234,11 +233,10 @@ app.post('/makeOrder', validate(validation.makeOrder), function(req, res) {
   });
   });
 
-app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
+app.post('/clientAuth', /*validate(validation.clientAuth),*/ function(req, res) {
 
   const action = 'clientAuth';
   const phone = req.body.phone;
-  const password = req.body.password;
   const name = req.body.name;
 
   const searchParams = {
@@ -251,7 +249,6 @@ app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
     databaseService('clients', 'getItem', searchParams, function(resultObject, err) {
       if(err) makeResponseService(action, res, {}, err);
       else if (Object.keys(resultObject).length == 0) {
-        bcrypt.hash(password, 10, function(err, hash) {
 
           const clientId = (new Date().getTime()).toString();
           const params = {
@@ -259,7 +256,6 @@ app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
               "phone":                       {'S': phone},
               "name":                        {'S': name},
               "clientId":                    {'S': clientId},              
-              "password":                    {'S': hash},
               "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
               "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
               "enterConfirmationCodeCounter": {'N': '0'}
@@ -267,69 +263,58 @@ app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
           }
 
           databaseService('clients','putItem', params, function(result, err) {
-            makeResponseService(action, res, { "clientId": clientId, "state": "needPhoneConfirmation" }, err);
+            makeResponseService(action, res, { "clientId": clientId, "state": "new" }, err);
           });
-       });
       }
-      else if(resultObject.confirmed != "true") {
-        makeResponseService(action, res, { "clientId": resultObject.clientId, "state": "needPhoneConfirmation" }, err);
-        bcrypt.compare(password, resultObject.password, function(err, isEqual) {
-          if(name != resultObject.name || isEqual != true){
-            bcrypt.hash(password, 10, function(err, hash) {
-              const params = {
+      else {
+           const params = {
                 ExpressionAttributeNames: {
-                  "#name": "name",
-                  "#password": "password"
+                  "#code": "code",
+                  "#enterConfirmationCodeCounter": "enterConfirmationCodeCounter"
                 }, 
                 ExpressionAttributeValues: {
-                  ":name": {
-                  S: name
-                  },
-                  ":password": {
-                    S: hash
-                  }
+                  ":code": {'N': randomStr.generate({length: 6, charset: 'numeric'})},
+                  ":enterConfirmationCodeCounter": {'N': '0'}
                 }, 
                 Key: {
                   "phone": {
                     S: phone
                   }
                 }, 
-                UpdateExpression: "SET #name = :name, #password = :password"
+                UpdateExpression: "SET #code = :code, #enterConfirmationCodeCounter = :enterConfirmationCodeCounter"
               };
 
               databaseService('clients','updateItem', params, function(result, err) {});
-            });
-          }
-        });
-      }
-      else bcrypt.compare(password, resultObject.password, function(err, isEqual) {
-        if(isEqual == true) { 
-          makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
-          if(name != resultObject.name){
-            const params = {
-              ExpressionAttributeNames: {
-                "#name": "name"
-              }, 
-              ExpressionAttributeValues: {
-                ":name": {
-                  S: name
-                }
-              }, 
-              Key: {
-                "phone": {
-                  S: phone
-                }
-              }, 
-              UpdateExpression: "SET #name = :name"
-            };
+              makeResponseService(action, res, { "clientId": clientId, "state": "active" }, err);
+         }
+      // else bcrypt.compare(password, resultObject.password, function(err, isEqual) {
+      //   if(isEqual == true) { 
+      //     makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
+      //     if(name != resultObject.name){
+      //       const params = {
+      //         ExpressionAttributeNames: {
+      //           "#name": "name"
+      //         }, 
+      //         ExpressionAttributeValues: {
+      //           ":name": {
+      //             S: name
+      //           }
+      //         }, 
+      //         Key: {
+      //           "phone": {
+      //             S: phone
+      //           }
+      //         }, 
+      //         UpdateExpression: "SET #name = :name"
+      //       };
 
-            databaseService('clients','updateItem', params, function(result, err) {});
-          }
-        }
-        else {
-          makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"authIncomingDataError","errorText":'Не верный логин или пароль.'});
-        }
-      });      
+      //       databaseService('clients','updateItem', params, function(result, err) {});
+      //     }
+      //   }
+      //   else {
+      //     makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"authIncomingDataError","errorText":'Не верный логин или пароль.'});
+      //   }
+      // });      
     });
 });
 
