@@ -233,7 +233,7 @@ app.post('/makeOrder', validate(validation.makeOrder), function(req, res) {
   });
   });
 
-app.post('/clientAuth', /*validate(validation.clientAuth),*/ function(req, res) {
+app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
 
   const action = 'clientAuth';
   const phone = req.body.phone;
@@ -258,8 +258,10 @@ app.post('/clientAuth', /*validate(validation.clientAuth),*/ function(req, res) 
               "clientId":                    {'S': clientId},              
               "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
               "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
-              "enterConfirmationCodeCounter": {'N': '0'}
-            }
+              "enterConfirmationCodeCounter": {'N': '0'},
+              "confirmationCodeExpires": {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
+              "confirmed": {'S': "false"}
+           }
           }
 
           databaseService('clients','putItem', params, function(result, err) {
@@ -270,51 +272,27 @@ app.post('/clientAuth', /*validate(validation.clientAuth),*/ function(req, res) 
            const params = {
                 ExpressionAttributeNames: {
                   "#code": "code",
-                  "#enterConfirmationCodeCounter": "enterConfirmationCodeCounter"
+                  "#confirmationCodeExpires": "confirmationCodeExpires",
+                  "#enterConfirmationCodeCounter": "enterConfirmationCodeCounter",
+                  "#confirmed": "confirmed"
                 }, 
                 ExpressionAttributeValues: {
                   ":code": {'N': randomStr.generate({length: 6, charset: 'numeric'})},
-                  ":enterConfirmationCodeCounter": {'N': '0'}
+                  ":enterConfirmationCodeCounter": {'N': '0'},
+                  ":confirmationCodeExpires": {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
+                  ":confirmed": {'S': 'false'}
                 }, 
                 Key: {
                   "phone": {
                     S: phone
                   }
                 }, 
-                UpdateExpression: "SET #code = :code, #enterConfirmationCodeCounter = :enterConfirmationCodeCounter"
+                UpdateExpression: "SET #code = :code, #enterConfirmationCodeCounter = :enterConfirmationCodeCounter, #confirmationCodeExpires = :confirmationCodeExpires, #confirmed = :confirmed"
               };
 
               databaseService('clients','updateItem', params, function(result, err) {});
-              makeResponseService(action, res, { "clientId": clientId, "state": "active" }, err);
-         }
-      // else bcrypt.compare(password, resultObject.password, function(err, isEqual) {
-      //   if(isEqual == true) { 
-      //     makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
-      //     if(name != resultObject.name){
-      //       const params = {
-      //         ExpressionAttributeNames: {
-      //           "#name": "name"
-      //         }, 
-      //         ExpressionAttributeValues: {
-      //           ":name": {
-      //             S: name
-      //           }
-      //         }, 
-      //         Key: {
-      //           "phone": {
-      //             S: phone
-      //           }
-      //         }, 
-      //         UpdateExpression: "SET #name = :name"
-      //       };
-
-      //       databaseService('clients','updateItem', params, function(result, err) {});
-      //     }
-      //   }
-      //   else {
-      //     makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"authIncomingDataError","errorText":'Не верный логин или пароль.'});
-      //   }
-      // });      
+              makeResponseService(action, res, { "clientId": resultObject.clientId, "state": "active" }, err);
+         }     
     });
 });
 
@@ -332,20 +310,20 @@ app.post('/checkConfirmationCode', validate(validation.checkConfirmationCode), f
 
     databaseService('clients', 'getItem', searchParams, function(resultObject, err) {
       if(err) makeResponseService(action, res, {}, err);
-      else if (Object.keys(resultObject).length == 0) {
+      else if(resultObject.confirmed == 'true') {makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);}
+      else if (Object.keys(resultObject).length == 0 || parseInt(resultObject.confirmationCodeExpires) < parseInt(new Date().getTime()/1000)) {
         makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"enterConfirmationCodeTimeout","errorText":'Срок действия временного кода истек.'});
-      }
-      else if(resultObject.confirmed == "true") {
-        makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"alreadyСonfirmed","errorText":'Телефон подтвержден ранее, необходимо пройти авторизацию.'});
       } 
+      else if(resultObject.enterConfirmationCodeCounter >= 3) {
+         makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"confirmationCodeInputLimit","errorText":'Вы превысили допустимое количество попыток ввода кода подтверждения.'});
+      }
       else if(parseInt(confirmationCode) == resultObject.code) {
         const params = {
           'Item': {
             'phone': {'S':phone},
             'clientId': {'S':resultObject.clientId},
-            'password': {'S':resultObject.password},
             'name': {'S':resultObject.name},
-            'confirmed': {'S':'true'}
+            'confirmed': {'S': 'true'}
           }
         };
 
@@ -375,11 +353,7 @@ app.post('/checkConfirmationCode', validate(validation.checkConfirmationCode), f
 
         databaseService('clients','updateItem', params, function(result, err) {});
       }
-      else if(resultObject.enterConfirmationCodeCounter >= 3) {
-         makeResponseService(action, res, {}, {"errorType":"consumer","errorCode":"confirmationCodeInputLimit","errorText":'Вы превысили допустимое количество попыток ввода кода подтверждения.'});
-      }
     });
-
 });
 
 // app.use(function(err, req, res, next){
