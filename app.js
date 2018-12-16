@@ -12,7 +12,7 @@ app.use(function(err, req, res, next){
 });
 
 require('./app/routes/client_routes')(app);
-require('./app/routes/working_day_routes')(app);
+require('./app/routes/employee_routes')(app);
 
 app.listen(port, () => {
   console.log('We are live on ' + port);
