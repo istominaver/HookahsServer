@@ -94,10 +94,11 @@ app.put('/endWorkingDay', function(req, res) {
   }
 }); 
 
-app.put('/hookahMix', function(req, res) {
-  //add "hookahMasterId": "0",!!!!!!!!
+app.put('/hookahMix', validate(validation.hookahMix), function(req, res) {
   const action = 'hookahMenu';
-  const mixId = (new Date().getTime()).toString();
+  let mixId;
+  if(req.body.mixId) mixId = req.body.mixId;
+  else mixId = (new Date().getTime()).toString();
   const tabacco = req.body.tabacco.map(function(item) {
       return {
               "M" : {
