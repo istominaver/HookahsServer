@@ -139,6 +139,8 @@ app.get('/hookahMenu', validate(validation.hookahMenu), function(req, res) {
     });  
 });  
 
+app.use(express.static('public'));
+
 app.post('/makeOrder', validate(validation.makeOrder), function(req, res) {
 
   const action = 'makeOrder';
@@ -256,7 +258,7 @@ app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
               "phone":                       {'S': phone},
               "name":                        {'S': name},
               "clientId":                    {'S': clientId},              
-              "code":                        {'N': randomStr.generate({length: 6, charset: 'numeric'})},
+              "code":                        {'N': '111111'},//{'N': randomStr.generate({length: 6, charset: 'numeric'})},
               "expires" :                    {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
               "enterConfirmationCodeCounter": {'N': '0'},
               "confirmationCodeExpires": {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
@@ -277,7 +279,7 @@ app.post('/clientAuth', validate(validation.clientAuth), function(req, res) {
                   "#confirmed": "confirmed"
                 }, 
                 ExpressionAttributeValues: {
-                  ":code": {'N': randomStr.generate({length: 6, charset: 'numeric'})},
+                  ":code":  {'N': '111111'},//{'N': randomStr.generate({length: 6, charset: 'numeric'})},
                   ":enterConfirmationCodeCounter": {'N': '0'},
                   ":confirmationCodeExpires": {'N': (new Date().getTime()/1000 + 300).toFixed(0)},
                   ":confirmed": {'S': 'false'}

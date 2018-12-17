@@ -94,7 +94,7 @@ app.put('/endWorkingDay', function(req, res) {
   }
 }); 
 
-app.put('/hookahMix', validate(validation.hookahMix), function(req, res) {
+app.post('/hookahMix', validate(validation.hookahMix), function(req, res) {
   const action = 'hookahMix';
   let mixId;
   if(req.body.mixId) mixId = req.body.mixId;
