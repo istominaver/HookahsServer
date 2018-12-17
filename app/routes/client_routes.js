@@ -330,7 +330,7 @@ app.post('/checkConfirmationCode', validate(validation.checkConfirmationCode), f
         };
 
         databaseService('clients','putItem', params, function(result, err) { 
-          makeResponseService(action, res, { "clientId": resultObject.clientId, "state":"authorized" }, err);
+          makeResponseService(action, res, { "clientId": resultObject.clientId, "name": resultObject.name, "phone": phone}, err);
        });
       }
       else if(resultObject.enterConfirmationCodeCounter < 3) {
