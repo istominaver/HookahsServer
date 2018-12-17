@@ -139,8 +139,6 @@ app.get('/hookahMenu', validate(validation.hookahMenu), function(req, res) {
     });  
 });  
 
-app.use(express.static('public'));
-
 app.post('/makeOrder', validate(validation.makeOrder), function(req, res) {
 
   const action = 'makeOrder';
