@@ -31,7 +31,7 @@ module.exports = {
   		clientId : Joi.string().required(), 
   		clientName : Joi.string().required(), 
   		peopleCount : Joi.number().positive().integer().required(),
-  		phoneNumber : Joi.string().regex(/^(\d{6,14})$/).required(),
+  		phoneNumber : Joi.string().regex(/^380(\d{9})$/).required(),
   		tableNumber : Joi.number().positive().integer().required(),
   		dueDate : Joi.date().min('now')
                                        
@@ -39,13 +39,13 @@ module.exports = {
   },
   clientAuth: {
   	body: {
-  	  phone : Joi.string().regex(/^(\d{6,14})$/).required(), 
+  	  phone : Joi.string().regex(/^380(\d{9})$/).required(), 
   	  name : Joi.string().regex(/^[а-яёa-z]{1,30}$/i).required()
   	}
   },
   checkConfirmationCode: {
     body: {
-  	  phone : Joi.string().regex(/^(\d{6,14})$/).required(),
+  	  phone : Joi.string().regex(/^380(\d{9})$/).required(),
   	  confirmationCode : Joi.string().regex(/^(\d{6})$/).required()
   	}
   }
